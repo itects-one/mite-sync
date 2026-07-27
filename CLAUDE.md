@@ -20,7 +20,7 @@ Java version is pinned to **25** (`.java-version`, `pom.xml`). Spring Boot **3.5
 
 ## Big-Picture Architecture
 
-The app exposes two independent workflows over the Mite time-tracking API, both as REST endpoints (no UI, no DB). See `HELP.md` and `mite-sync.http` for example payloads.
+The app exposes two independent workflows over the Mite time-tracking API, both as REST endpoints (no UI). On top of them sits a **persistent proposal store** (`/proposals`, package `persistence` + `service.ProposalService` + `web.controller.ProposalController`): an embedded H2 file database (`~/.mite-sync/db/`, `spring.datasource` in `application.yml`; in Docker overridden to `/data/db` via `SPRING_DATASOURCE_URL`) that lets a generated proposal be reviewed/edited/confirmed as an inbox item. It reuses the existing `DailyReportFacade` (`preview` to generate a DRAFT, `book` to confirm) and only adds the state machine (`DRAFT → BOOKED | PARTIALLY_BOOKED | FAILED`; edit/confirm require DRAFT → 409). This is stage 1 of a larger vision (web UI + scheduler + in-app AI agent). See `HELP.md` and `mite-sync.http` for example payloads.
 
 ### Two Mite instances, two directions
 

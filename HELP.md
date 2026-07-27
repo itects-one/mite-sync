@@ -90,6 +90,27 @@ that ticket. By default only what the history shows is proposed.
 The PAT is injected via the environment variable `DAILY_REPORTS_AZURE_DEVOPS_PAT` (see
 `.env.example`). It only needs the **Work Items: Read** scope.
 
+## Proposal store (review inbox)
+
+Beyond the stateless `preview`/`book` pair there is a **persistent proposal store** under
+`/proposals`. It lets a generated proposal sit in an inbox until it is reviewed, optionally edited,
+and confirmed — the foundation for a later scheduler + web UI.
+
+- `POST /proposals/{project}/{date}` — generate (or regenerate) the **DRAFT** proposal for a day.
+  Reuses the existing preview pipeline (same body as `preview`: `mainPbiId` / `targetHours`). An
+  existing DRAFT for the same day is overwritten in place.
+- `GET /proposals` — list the inbox (newest report date first). `GET /proposals/{id}` — one item.
+- `PUT /proposals/{id}/entries` — replace the entries of a DRAFT (manual edit). Only allowed while
+  DRAFT (otherwise `409`).
+- `POST /proposals/{id}/confirm` — books the entries into Mite via the existing best-effort
+  pipeline and records the outcome as `BOOKED`, `PARTIALLY_BOOKED` or `FAILED`. Only allowed while
+  DRAFT.
+- `DELETE /proposals/{id}` — remove a proposal.
+
+Proposals are persisted in an embedded **H2 file database** at `~/.mite-sync/db/` (in Docker,
+`SPRING_DATASOURCE_URL` points at `/data/db`, bind-mounted like the Google tokens). See
+[`mite-sync.http`](./mite-sync.http) for ready-to-run examples.
+
 ## Example requests
 
 See [`mite-sync.http`](./mite-sync.http) — the IntelliJ HTTP client understands this format
@@ -112,6 +133,11 @@ directly.
        │ Azure DevOps    │─Proposal──→│  Source Mite        │
        │   (PAT)         │            │                     │
        └─────────────────┘            └─────────────────────┘
+
+       ┌──────────────────────────────────────────────────┐
+       │  /proposals  (review inbox, H2 file db)           │
+       │  generate → review/edit → confirm → book to Mite  │
+       └──────────────────────────────────────────────────┘
 ```
 
 ---

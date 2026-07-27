@@ -65,3 +65,41 @@ Content-Type: application/json
     { "minutes": 60, "note": "#VC-124 Other work" }
   ]
 }
+
+########################################################################
+# Proposal store (review inbox): generate → review/edit → confirm
+# Proposals are persisted (H2 file db); generation reuses the preview
+# pipeline, confirmation reuses the book pipeline.
+########################################################################
+
+### Generate (or regenerate) the DRAFT proposal for a project profile + date
+POST http://localhost:8080/proposals/default/2026-05-04
+Content-Type: application/json
+
+{
+  "mainPbiId": 12345,
+  "targetHours": 6.25
+}
+
+### List all proposals (inbox, newest first)
+GET http://localhost:8080/proposals
+
+### Get a single proposal by id
+GET http://localhost:8080/proposals/1
+
+### Edit the entries of a DRAFT proposal (before confirming)
+PUT http://localhost:8080/proposals/1/entries
+Content-Type: application/json
+
+{
+  "entries": [
+    { "minutes": 15,  "note": "#1234 Team Daily" },
+    { "minutes": 360, "note": "#12345 Feature XY" }
+  ]
+}
+
+### Confirm a DRAFT proposal — books its entries into Mite
+POST http://localhost:8080/proposals/1/confirm
+
+### Delete a proposal
+DELETE http://localhost:8080/proposals/1
