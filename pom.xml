@@ -35,6 +35,15 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- Persistence: proposal store (embedded H2 file database) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
@@ -132,6 +141,9 @@
                             <excludes>
                                 <exclude>org/twittig/mite/mitesync/service/GoogleCalendarService.class</exclude>
                                 <exclude>org/twittig/mite/mitesync/service/AzureDevOpsService.class</exclude>
+                                <!-- Accessor-only JPA entities: no business logic to cover -->
+                                <exclude>org/twittig/mite/mitesync/persistence/Proposal.class</exclude>
+                                <exclude>org/twittig/mite/mitesync/persistence/ProposalEntry.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>

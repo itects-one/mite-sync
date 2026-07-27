@@ -8,7 +8,10 @@ services:
     volumes:
       - ${SECRETS_DIR:-~/.mite-sync}/google-client-secret.json:/secrets/google-client-secret.json:ro
       - ${SECRETS_DIR:-~/.mite-sync}/google-tokens:/secrets/google-tokens
+      - ${SECRETS_DIR:-~/.mite-sync}/db:/data/db   # proposal store (H2 file database)
     environment:
+      # Proposal store: fixed /data path (container home differs from the host)
+      SPRING_DATASOURCE_URL: "jdbc:h2:file:/data/db/mite-sync;AUTO_SERVER=TRUE"
       # Mite source (main instance)
       MITE_SYNC_SOURCE_HOST: ${MITE_SYNC_SOURCE_HOST}
       MITE_SYNC_SOURCE_API_KEY: ${MITE_SYNC_SOURCE_API_KEY}

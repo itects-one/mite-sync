@@ -1,6 +1,17 @@
 spring:
   application:
     name: "mite-sync"
+  # Proposal store: embedded H2 file database. Lives next to the Google tokens under
+  # ~/.mite-sync. In Docker, SPRING_DATASOURCE_URL is overridden to a fixed /data path
+  # (see docker-compose.yml) because the container home differs.
+  datasource:
+    url: "jdbc:h2:file:${user.home}/.mite-sync/db/mite-sync;AUTO_SERVER=TRUE"
+    username: "sa"
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: "update"
+    open-in-view: false
 
 logging:
   level:
