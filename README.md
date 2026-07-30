@@ -1,14 +1,24 @@
 # mite-sync
 
-Spring Boot service around the [mite](https://mite.de/) time-tracking API. Exposes two
-independent REST workflows:
+Spring Boot service around the [mite](https://mite.de/) time-tracking API. It exposes two
+independent REST workflows and a persistent review inbox on top of them:
 
 1. **`POST /sync-jobs`** — copies time entries from a source Mite instance to a target Mite
    instance (delete-then-recreate for a given date range). Useful for mirroring a
    billing-relevant Mite into a private mirror Mite.
-2. **`POST /daily-reports/{date}/preview`** and **`/book`** — combines Google Calendar events
-   and Azure DevOps work items into a daily booking proposal and, after manual review, books it
-   into the source Mite.
+2. **`POST /daily-reports/{project}/{date}/preview`** and **`/book`** — builds a daily booking
+   proposal and, after manual review, books it into Mite. The `{project}` segment selects a
+   profile that decides where the proposal comes from and which Mite instance it lands in:
+   `calendar-devops` combines Google Calendar events with Azure DevOps work items,
+   `git-activity` derives the day's work from local git history. Routes without the segment use
+   the default profile.
+3. **`/proposals`** — the review inbox. A generated proposal is stored as a `DRAFT`, can be
+   listed, edited and finally confirmed, which books it and records the outcome
+   (`DRAFT → BOOKED | PARTIALLY_BOOKED | FAILED`). Editing and confirming are only allowed
+   while the proposal is a `DRAFT`. Unlike the stateless preview/book pair it survives
+   restarts — the groundwork for a scheduler and a web UI.
+
+[HELP.md](./HELP.md) describes each of them in detail.
 
 ## Stack
 
@@ -16,6 +26,8 @@ independent REST workflows:
 - Mite client: [`io.seventytwo.oss:mite-java`](https://github.com/72services/mite-java)
 - Google Calendar API (OAuth2)
 - Azure DevOps REST API (PAT)
+- Local git history via JGit (`git-activity` workflow)
+- Proposal store: embedded H2 file database under `~/.mite-sync/db/`
 
 ## Setup
 
