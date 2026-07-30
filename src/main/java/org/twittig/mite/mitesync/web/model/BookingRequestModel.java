@@ -10,9 +10,10 @@ import java.util.List;
  */
 public class BookingRequestModel {
 
+  // @Valid sits on the type argument, not on the container — Hibernate Validator 9 deprecates
+  // the container form (HV000271).
   @NotEmpty(message = "entries must not be empty")
-  @Valid
-  private List<ProposalEntryModel> entries;
+  private List<@Valid ProposalEntryModel> entries;
 
   public BookingRequestModel() {}
 

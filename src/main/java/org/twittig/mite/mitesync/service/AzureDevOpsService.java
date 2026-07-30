@@ -1,7 +1,5 @@
 package org.twittig.mite.mitesync.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -20,6 +18,8 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.twittig.mite.mitesync.web.model.WorkItemModel;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Queries Azure DevOps work items through the REST API. Auth uses a Personal Access Token (PAT)
