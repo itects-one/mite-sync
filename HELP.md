@@ -111,10 +111,41 @@ Proposals are persisted in an embedded **H2 file database** at `~/.mite-sync/db/
 `SPRING_DATASOURCE_URL` points at `/data/db`, bind-mounted like the Google tokens). See
 [`mite-sync.http`](./mite-sync.http) for ready-to-run examples.
 
+## Authentication
+
+**Every endpoint requires HTTP basic authentication**, including the OpenAPI UI. Unauthenticated
+requests get `401`. The write paths create real entries in Mite and the proposal store holds
+persistent state, so the service must not be reachable without credentials once it runs anywhere
+but localhost.
+
+There is a single user, configured through Spring Boot's own properties and overridable by
+environment variable like every other secret:
+
+| Variable | Meaning |
+|---|---|
+| `SPRING_SECURITY_USER_NAME` | user name (default `user`) |
+| `SPRING_SECURITY_USER_PASSWORD` | password |
+
+They are deliberately **not** present in the committed `application.yml`: an empty placeholder
+password would be a weak credential. If the password is left unset, Spring Boot generates a random
+one and logs it at startup — convenient locally, but for anything long-running set both explicitly
+in `.env` (see `.env.example`).
+
+Calling an endpoint then looks like this:
+
+```sh
+curl -u "$SPRING_SECURITY_USER_NAME:$SPRING_SECURITY_USER_PASSWORD" http://localhost:8080/proposals
+```
+
+CSRF protection is disabled and sessions are stateless — this is a REST API consumed by HTTP
+clients, not a browser form application, so there is no session to protect and no token for a
+client to carry.
+
 ## Example requests
 
 See [`mite-sync.http`](./mite-sync.http) — the IntelliJ HTTP client understands this format
-directly.
+directly. Every request in that file needs an `Authorization` header; the IntelliJ HTTP client
+can supply it from an environment file.
 
 ## Architecture overview
 
