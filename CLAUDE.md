@@ -16,7 +16,12 @@ Maven wrapper (`./mvnw`) is committed; prefer it over a system `mvn`.
 
 JaCoCo enforces **≥80% instruction coverage at BUNDLE level** as part of `verify`. `GoogleCalendarService` and `AzureDevOpsService` are excluded (external I/O). When adding code in other classes, expect the coverage gate to fail builds if untested.
 
-Java version is pinned to **25** (`.java-version`, `pom.xml`). Spring Boot **3.5.14**.
+Java version is pinned to **25** (`.java-version`, `pom.xml`). Spring Boot **4.1.0**.
+
+Spring Boot 4 changed three things this repo depends on. Keep them in mind when adding code:
+- **Jackson 3** lives under `tools.jackson.*` (group id `tools.jackson.core`), not `com.fasterxml.jackson.*`. Annotations stay under `com.fasterxml.jackson.annotation`.
+- **`@MockBean`/`@SpyBean` are gone.** Use `@MockitoBean`/`@MockitoSpyBean` from `org.springframework.test.context.bean.override.mockito`.
+- **Test slices moved into their own modules** and `spring-boot-starter-test` no longer brings them: `@WebMvcTest` is `org.springframework.boot.webmvc.test.autoconfigure` (artifact `spring-boot-webmvc-test`), `@DataJpaTest` is `org.springframework.boot.data.jpa.test.autoconfigure` (artifact `spring-boot-data-jpa-test`). Adding a new slice means adding its module to `pom.xml`.
 
 ## Big-Picture Architecture
 
