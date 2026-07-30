@@ -12,7 +12,7 @@ independent REST workflows:
 
 ## Stack
 
-- Java 25, Spring Boot 3.5
+- Java 25, Spring Boot 4.1
 - Mite client: [`io.seventytwo.oss:mite-java`](https://github.com/72services/mite-java)
 - Google Calendar API (OAuth2)
 - Azure DevOps REST API (PAT)
