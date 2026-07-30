@@ -80,6 +80,14 @@ All runtime config lives in `src/main/resources/application.yml` and is overridd
 
 Google OAuth artifacts (`google-client-secret.json`, `google-tokens/`) live under `~/.mite-sync/` on the host and are bind-mounted into the container.
 
+### Security
+
+`SecurityConfig` (package `config`) locks **every** endpoint behind HTTP basic auth — there is no public path, not even the OpenAPI UI. CSRF is disabled and sessions are stateless because this is a REST API for HTTP clients, not a browser form application.
+
+The single user comes from Spring Boot's `spring.security.user.*` properties (`SPRING_SECURITY_USER_NAME` / `SPRING_SECURITY_USER_PASSWORD`). They are intentionally **absent from the committed `application.yml`**, unlike the other placeholder values: an empty placeholder password would be a weak credential, whereas leaving them unset makes Boot generate a random password and log it — failing safe rather than open.
+
+Two things to know when writing controller tests: `@WebMvcTest` does **not** pick up `SecurityConfig` on its own (it is a plain `@Configuration`), so a slice test needs `@Import(SecurityConfig.class)` or it silently runs against Boot's default chain — where CSRF is on and every POST gets a 403. And the security slice auto-configuration lives in its own module in Boot 4: without the `spring-boot-security-test` dependency, `@WebMvcTest` applies no security filter at all. Authenticate slice tests with `@WithMockUser`.
+
 ### Validation & error handling
 
 - Request DTOs use Jakarta validation (`@Valid` on controllers).

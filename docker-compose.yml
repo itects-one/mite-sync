@@ -12,6 +12,9 @@ services:
     environment:
       # Proposal store: fixed /data path (container home differs from the host)
       SPRING_DATASOURCE_URL: "jdbc:h2:file:/data/db/mite-sync;AUTO_SERVER=TRUE"
+      # API credentials (HTTP basic auth) — required on every endpoint
+      SPRING_SECURITY_USER_NAME: ${SPRING_SECURITY_USER_NAME}
+      SPRING_SECURITY_USER_PASSWORD: ${SPRING_SECURITY_USER_PASSWORD}
       # Mite source (main instance)
       MITE_SYNC_SOURCE_HOST: ${MITE_SYNC_SOURCE_HOST}
       MITE_SYNC_SOURCE_API_KEY: ${MITE_SYNC_SOURCE_API_KEY}

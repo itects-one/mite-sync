@@ -14,9 +14,12 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.twittig.mite.mitesync.config.SecurityConfig;
 import org.twittig.mite.mitesync.config.UnknownProfileException;
 import org.twittig.mite.mitesync.facade.DailyReportFacade;
 import org.twittig.mite.mitesync.facade.MissingMainPbiException;
@@ -27,6 +30,8 @@ import org.twittig.mite.mitesync.web.model.MiteEntryModel;
 import org.twittig.mite.mitesync.web.model.ProposalEntryModel;
 import tools.jackson.databind.ObjectMapper;
 
+@Import(SecurityConfig.class)
+@WithMockUser
 @WebMvcTest(DailyReportController.class)
 class DailyReportControllerTest {
 
