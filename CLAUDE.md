@@ -43,7 +43,7 @@ Hosts and credentials come from env vars (`MITE_SYNC_SOURCE_*` / `MITE_SYNC_TARG
 
 ### Workflow 2 — `/daily-reports/{project}/{date}/preview` and `/book`
 
-Daily reports are **profile-based**: the `{project}` path segment selects a profile from `daily-reports.profiles.*` (`DailyReportProperties` → `ProfileRegistry`). A profile defines the workflow type, the Mite instance + project/service ids, and the booking rules (daily summary/minutes, rounding step, target minutes). Legacy routes without a project segment use `daily-reports.default-profile`; unknown keys → 404 (`GlobalExceptionHandler`).
+Daily reports are **profile-based**: the `{project}` path segment selects a profile from `daily-reports.profiles.*` (`DailyReportProperties` → `ProfileRegistry`). A profile defines the workflow type, the Mite instance + project/service ids, and the booking rules (daily summary/minutes, rounding step, target minutes). Legacy routes without a project segment use `daily-reports.default-profile`; unknown keys → 404 (`GlobalExceptionHandler`). `GET /profiles` (`ProfileController` → `ProfileRegistry.all()`) makes the configured keys discoverable and states per profile whether `mainPbiId` is required — it deliberately omits Mite ids, instance keys and repository paths.
 
 Two workflow types exist (switch in `DailyReportFacade`):
 - **`calendar-devops`** — Google Calendar + Azure DevOps + fill-up onto a main PBI. `mainPbiId` is required, but enforced in the facade (`MissingMainPbiException` → 400), NOT via bean validation — git-activity profiles share the same request body and don't use it.

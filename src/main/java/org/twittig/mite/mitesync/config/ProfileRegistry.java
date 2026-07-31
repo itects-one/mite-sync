@@ -1,5 +1,7 @@
 package org.twittig.mite.mitesync.config;
 
+import java.util.SortedMap;
+import java.util.TreeMap;
 import org.springframework.stereotype.Component;
 import org.twittig.mite.mitesync.config.DailyReportProperties.Profile;
 
@@ -29,5 +31,10 @@ public class ProfileRegistry {
   /** Key of the profile used by the legacy endpoints without a project path segment. */
   public String defaultProfileKey() {
     return properties.getDefaultProfile();
+  }
+
+  /** All configured profiles, ordered by key so that a listing is stable. */
+  public SortedMap<String, Profile> all() {
+    return new TreeMap<>(properties.getProfiles());
   }
 }
