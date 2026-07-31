@@ -34,6 +34,10 @@ Content-Type: application/json
   "targetHours": 6.25
 }
 
+### List the configured project profiles (the {project} path segment of the other endpoints)
+GET http://localhost:8080/profiles
+Authorization: Basic {{auth}}
+
 ### Book the daily-report (entries from preview, edited if needed)
 POST http://localhost:8080/daily-reports/2026-05-04/book
 Authorization: Basic {{auth}}

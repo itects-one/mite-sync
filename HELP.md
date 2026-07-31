@@ -22,6 +22,19 @@ The `{project}` path segment selects a profile from `daily-reports.profiles.*` i
 The legacy routes without a project segment (`/daily-reports/{date}/preview`) use the profile
 named by `daily-reports.default-profile`. Unknown project keys return 404.
 
+`GET /profiles` lists what is configured, ordered by key — the keys to put in the `{project}`
+segment, each with its workflow type, its daily target, whether it is the default, and whether it
+expects a `mainPbiId`:
+
+```json
+[
+  { "key": "default", "workflowType": "calendar-devops", "requiresMainPbi": true, "targetMinutes": 375, "default": true }
+]
+```
+
+Mite ids, instance keys and repository paths stay out of that response — they are configuration,
+not API surface.
+
 ### Git activity estimation
 
 For `git-activity` profiles the proposal is derived from the commit history of locally
