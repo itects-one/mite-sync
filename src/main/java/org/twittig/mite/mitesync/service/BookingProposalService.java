@@ -7,6 +7,7 @@ import org.twittig.mite.mitesync.config.DailyReportProperties.GitActivity;
 import org.twittig.mite.mitesync.config.DailyReportProperties.Profile;
 import org.twittig.mite.mitesync.config.DailyReportProperties.Rules;
 import org.twittig.mite.mitesync.web.model.CalendarEventModel;
+import org.twittig.mite.mitesync.web.model.EntrySource;
 import org.twittig.mite.mitesync.web.model.MiteEntryModel;
 import org.twittig.mite.mitesync.web.model.PbiAssignmentModel;
 import org.twittig.mite.mitesync.web.model.ProposalEntryModel;
@@ -68,7 +69,7 @@ public class BookingProposalService {
       // Skip when an entry with the same note is already booked
       if (alreadyNotes.contains(note.trim().toLowerCase())) continue;
 
-      proposal.add(new ProposalEntryModel(minutes, note, "calendar", null, null));
+      proposal.add(new ProposalEntryModel(minutes, note, EntrySource.CALENDAR, null, null));
       meetingMinutes += minutes;
     }
 
@@ -86,7 +87,7 @@ public class BookingProposalService {
       String note = "#" + pbiAssignment.getMainPbiId() + " " + pbiTitle;
       proposal.add(
           new ProposalEntryModel(
-              remaining, note, "main-pbi-fill", pbiAssignment.getMainPbiId(), pbiTitle));
+              remaining, note, EntrySource.MAIN_PBI_FILL, pbiAssignment.getMainPbiId(), pbiTitle));
     }
 
     return proposal;
@@ -133,7 +134,7 @@ public class BookingProposalService {
       remaining = Math.max(0, roundDownToStep(remaining, rules.getRoundingStepMinutes()));
       if (remaining > 0) {
         String note = "#" + git.getFillUpTicket() + " " + git.getFillUpNote();
-        proposal.add(new ProposalEntryModel(remaining, note, "git-fill", null, null));
+        proposal.add(new ProposalEntryModel(remaining, note, EntrySource.GIT_FILL, null, null));
       }
     }
     return proposal;

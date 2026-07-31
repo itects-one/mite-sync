@@ -8,7 +8,7 @@ public class ProposalEntryModel {
 
   private int minutes;
   private String note;
-  private String source; // "calendar" | "main-pbi-fill" | "additional-pbi-fill"
+  private String source; // provenance, see EntrySource
   private Integer pbiId; // optional, for the overview
   private String pbiTitle; // optional
 

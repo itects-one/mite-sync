@@ -2,16 +2,21 @@ package org.twittig.mite.mitesync.service;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.twittig.mite.mitesync.facade.DailyReportFacade;
 import org.twittig.mite.mitesync.persistence.Proposal;
+import org.twittig.mite.mitesync.persistence.ProposalEntry;
 import org.twittig.mite.mitesync.persistence.ProposalRepository;
 import org.twittig.mite.mitesync.persistence.ProposalStatus;
 import org.twittig.mite.mitesync.web.model.BookingResultModel;
 import org.twittig.mite.mitesync.web.model.ConfirmResultModel;
 import org.twittig.mite.mitesync.web.model.DailyReportModel;
+import org.twittig.mite.mitesync.web.model.EntrySource;
 import org.twittig.mite.mitesync.web.model.PbiAssignmentModel;
 import org.twittig.mite.mitesync.web.model.ProposalEntryModel;
 import org.twittig.mite.mitesync.web.model.ProposalModel;
@@ -69,9 +74,45 @@ public class ProposalService {
   public ProposalModel editEntries(Long id, List<ProposalEntryModel> entries) {
     Proposal proposal = load(id);
     requireDraft(proposal);
-    proposal.replaceEntries(mapper.toEntryEntities(entries));
+    List<ProposalEntry> edited = mapper.toEntryEntities(entries);
+    applyProvenance(proposal.getEntries(), edited);
+    proposal.replaceEntries(edited);
     proposal.setUpdatedAt(Instant.now());
     return mapper.toModel(repository.save(proposal));
+  }
+
+  /**
+   * Derives the provenance of edited entries instead of trusting the request body. An entry that is
+   * unchanged (same minutes, note and PBI id) inherits the source of the stored entry it matches —
+   * it was not touched, so its origin still holds. Everything else came from a human and becomes
+   * {@link EntrySource#MANUAL}.
+   *
+   * <p>Provenance is a fact about how an entry came to be, not client input: deriving it server-side
+   * keeps a caller from labelling hand-written work as derived from evidence.
+   *
+   * <p>Matches are consumed one by one, so two identical incoming entries cannot both inherit from
+   * the same stored one — the second is a new entry and counts as manual.
+   */
+  private static void applyProvenance(List<ProposalEntry> stored, List<ProposalEntry> edited) {
+    List<ProposalEntry> unmatched = new ArrayList<>(stored);
+    for (ProposalEntry entry : edited) {
+      entry.setSource(EntrySource.MANUAL);
+      for (Iterator<ProposalEntry> it = unmatched.iterator(); it.hasNext(); ) {
+        ProposalEntry candidate = it.next();
+        if (sameContent(candidate, entry)) {
+          entry.setSource(candidate.getSource());
+          it.remove();
+          break;
+        }
+      }
+    }
+  }
+
+  /** Whether an edited entry still carries the content of a stored one (the title is cosmetic). */
+  private static boolean sameContent(ProposalEntry stored, ProposalEntry edited) {
+    return stored.getMinutes() == edited.getMinutes()
+        && Objects.equals(stored.getNote(), edited.getNote())
+        && Objects.equals(stored.getPbiId(), edited.getPbiId());
   }
 
   /**
