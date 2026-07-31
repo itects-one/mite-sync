@@ -33,6 +33,10 @@ build/
 /.java-version
 /.claude/
 
+### Frontend ###
+# Node itself is downloaded into target/ by frontend-maven-plugin; package-lock.json is committed.
+node_modules/
+
 ### macOS ###
 .DS_Store
 
