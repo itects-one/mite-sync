@@ -101,7 +101,7 @@ and confirmed — the foundation for a later scheduler + web UI.
   existing DRAFT for the same day is overwritten in place.
 - `GET /proposals` — list the inbox (newest report date first). `GET /proposals/{id}` — one item.
 - `PUT /proposals/{id}/entries` — replace the entries of a DRAFT (manual edit). Only allowed while
-  DRAFT (otherwise `409`).
+  DRAFT (otherwise `409`). See **Entry provenance** below for what happens to `source`.
 - `POST /proposals/{id}/confirm` — books the entries into Mite via the existing best-effort
   pipeline and records the outcome as `BOOKED`, `PARTIALLY_BOOKED` or `FAILED`. Only allowed while
   DRAFT.
@@ -110,6 +110,25 @@ and confirmed — the foundation for a later scheduler + web UI.
 Proposals are persisted in an embedded **H2 file database** at `~/.mite-sync/db/` (in Docker,
 `SPRING_DATASOURCE_URL` points at `/data/db`, bind-mounted like the Google tokens). See
 [`mite-sync.http`](./mite-sync.http) for ready-to-run examples.
+
+### Entry provenance
+
+Every entry carries a `source` saying where it came from — the difference between "the app derived
+this from evidence" and "a human typed this":
+
+| `source` | Meaning |
+|---|---|
+| `calendar` | meeting taken from the calendar |
+| `main-pbi-fill` | fill-up onto the main PBI, up to the daily target |
+| `git` | derived from the commit history |
+| `git-fill` | fill-up onto the configured git fill-up ticket |
+| `manual` | written or changed by hand |
+
+On `PUT /proposals/{id}/entries` the value is **derived by the server and a `source` in the request
+body is ignored**. An entry that comes back with unchanged minutes, note and PBI id keeps the
+provenance it was generated with — it was not touched. Everything changed or added becomes
+`manual`. Editing therefore never silently erases where an entry came from, and a caller cannot
+label hand-written work as derived from evidence.
 
 ## Authentication
 

@@ -103,6 +103,8 @@ GET http://localhost:8080/proposals/1
 Authorization: Basic {{auth}}
 
 ### Edit the entries of a DRAFT proposal (before confirming)
+# "source" is derived server-side and ignored here: an entry that comes back unchanged keeps the
+# provenance it was generated with, everything changed or added is returned as "manual".
 PUT http://localhost:8080/proposals/1/entries
 Authorization: Basic {{auth}}
 Content-Type: application/json

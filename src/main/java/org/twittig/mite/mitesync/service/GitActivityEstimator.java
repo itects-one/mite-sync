@@ -9,6 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.twittig.mite.mitesync.config.DailyReportProperties.GitActivity;
+import org.twittig.mite.mitesync.web.model.EntrySource;
 import org.twittig.mite.mitesync.web.model.ProposalEntryModel;
 
 /**
@@ -82,7 +83,7 @@ public class GitActivityEstimator {
       String ticket = e.getKey();
       String subject = subjectWithoutTicket(latestCommitByTicket.get(ticket), ticketPattern);
       String note = ticket.isBlank() ? subject : "#" + ticket + " " + subject;
-      entries.add(new ProposalEntryModel(minutes, note.strip(), "git", null, null));
+      entries.add(new ProposalEntryModel(minutes, note.strip(), EntrySource.GIT, null, null));
     }
     return entries;
   }

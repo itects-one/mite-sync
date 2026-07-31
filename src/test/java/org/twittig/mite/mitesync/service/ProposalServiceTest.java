@@ -26,6 +26,7 @@ import org.twittig.mite.mitesync.persistence.ProposalStatus;
 import org.twittig.mite.mitesync.web.model.BookingResultModel;
 import org.twittig.mite.mitesync.web.model.ConfirmResultModel;
 import org.twittig.mite.mitesync.web.model.DailyReportModel;
+import org.twittig.mite.mitesync.web.model.EntrySource;
 import org.twittig.mite.mitesync.web.model.MiteEntryModel;
 import org.twittig.mite.mitesync.web.model.PbiAssignmentModel;
 import org.twittig.mite.mitesync.web.model.ProposalEntryModel;
@@ -52,7 +53,8 @@ class ProposalServiceTest {
 
   @Test
   void generate_createsNewDraft_whenNoneExists() {
-    DailyReportModel report = reportWith(new ProposalEntryModel(120, "#1 x", "dev", 1, "x"));
+    DailyReportModel report =
+        reportWith(new ProposalEntryModel(120, "#1 x", EntrySource.MAIN_PBI_FILL, 1, "x"));
     when(facade.preview(eq("default"), eq(DATE), any())).thenReturn(report);
     when(repository.findByProfileKeyAndReportDateAndStatus("default", DATE, ProposalStatus.DRAFT))
         .thenReturn(Optional.empty());
@@ -68,9 +70,12 @@ class ProposalServiceTest {
   void generate_overwritesEntriesOfExistingDraft() {
     Proposal existing = new Proposal("default", DATE, ProposalStatus.DRAFT);
     existing.setId(5L);
-    existing.replaceEntries(List.of(new ProposalEntry(60, "old", "dev", null, null)));
+    existing.replaceEntries(
+        List.of(new ProposalEntry(60, "old", EntrySource.MAIN_PBI_FILL, null, null)));
     when(facade.preview(eq("default"), eq(DATE), any()))
-        .thenReturn(reportWith(new ProposalEntryModel(300, "#2 new", "dev", 2, "new")));
+        .thenReturn(
+            reportWith(
+                new ProposalEntryModel(300, "#2 new", EntrySource.MAIN_PBI_FILL, 2, "new")));
     when(repository.findByProfileKeyAndReportDateAndStatus("default", DATE, ProposalStatus.DRAFT))
         .thenReturn(Optional.of(existing));
 
@@ -103,11 +108,12 @@ class ProposalServiceTest {
   @Test
   void editEntries_replacesEntriesOfDraft() {
     Proposal p = draftWithId(3L);
-    p.replaceEntries(List.of(new ProposalEntry(60, "old", "dev", null, null)));
+    p.replaceEntries(List.of(new ProposalEntry(60, "old", EntrySource.GIT, null, null)));
     when(repository.findById(3L)).thenReturn(Optional.of(p));
 
     ProposalModel m =
-        service.editEntries(3L, List.of(new ProposalEntryModel(200, "#9 edited", "dev", 9, "e")));
+        service.editEntries(
+            3L, List.of(new ProposalEntryModel(200, "#9 edited", EntrySource.GIT, 9, "e")));
 
     assertThat(m.getEntries()).hasSize(1);
     assertThat(m.getEntries().get(0).getNote()).isEqualTo("#9 edited");
@@ -121,8 +127,114 @@ class ProposalServiceTest {
     when(repository.findById(4L)).thenReturn(Optional.of(p));
 
     assertThatThrownBy(
-            () -> service.editEntries(4L, List.of(new ProposalEntryModel(10, "x", "dev", null, null))))
+            () ->
+                service.editEntries(
+                    4L, List.of(new ProposalEntryModel(10, "x", EntrySource.GIT, null, null))))
         .isInstanceOf(IllegalProposalStateException.class);
+  }
+
+  // -------- editEntries: provenance --------
+
+  @Test
+  void editEntries_keepsSourceOfUntouchedEntry() {
+    Proposal p = draftWithId(20L);
+    p.replaceEntries(List.of(new ProposalEntry(45, "#VC-1 Fix", EntrySource.GIT, null, null)));
+    when(repository.findById(20L)).thenReturn(Optional.of(p));
+
+    // The client sends the entry back unchanged and without a source — the common UI round-trip.
+    ProposalModel m =
+        service.editEntries(20L, List.of(new ProposalEntryModel(45, "#VC-1 Fix", null, null, null)));
+
+    assertThat(m.getEntries().get(0).getSource()).isEqualTo(EntrySource.GIT);
+  }
+
+  @Test
+  void editEntries_marksChangedMinutesAsManual() {
+    Proposal p = draftWithId(21L);
+    p.replaceEntries(List.of(new ProposalEntry(45, "#VC-1 Fix", EntrySource.GIT, null, null)));
+    when(repository.findById(21L)).thenReturn(Optional.of(p));
+
+    ProposalModel m =
+        service.editEntries(21L, List.of(new ProposalEntryModel(60, "#VC-1 Fix", null, null, null)));
+
+    assertThat(m.getEntries().get(0).getSource()).isEqualTo(EntrySource.MANUAL);
+  }
+
+  @Test
+  void editEntries_marksChangedNoteAsManual() {
+    Proposal p = draftWithId(22L);
+    p.replaceEntries(List.of(new ProposalEntry(45, "#VC-1 Fix", EntrySource.GIT, null, null)));
+    when(repository.findById(22L)).thenReturn(Optional.of(p));
+
+    ProposalModel m =
+        service.editEntries(
+            22L, List.of(new ProposalEntryModel(45, "#VC-1 Fix properly", null, null, null)));
+
+    assertThat(m.getEntries().get(0).getSource()).isEqualTo(EntrySource.MANUAL);
+  }
+
+  @Test
+  void editEntries_marksAddedEntryAsManual_andKeepsTheOtherOne() {
+    Proposal p = draftWithId(23L);
+    p.replaceEntries(List.of(new ProposalEntry(45, "#VC-1 Fix", EntrySource.GIT, null, null)));
+    when(repository.findById(23L)).thenReturn(Optional.of(p));
+
+    ProposalModel m =
+        service.editEntries(
+            23L,
+            List.of(
+                new ProposalEntryModel(45, "#VC-1 Fix", null, null, null),
+                new ProposalEntryModel(30, "#VC-2 Review", null, null, null)));
+
+    assertThat(m.getEntries()).hasSize(2);
+    assertThat(m.getEntries().get(0).getSource()).isEqualTo(EntrySource.GIT);
+    assertThat(m.getEntries().get(1).getSource()).isEqualTo(EntrySource.MANUAL);
+  }
+
+  @Test
+  void editEntries_ignoresClientSuppliedSource() {
+    Proposal p = draftWithId(24L);
+    p.replaceEntries(List.of(new ProposalEntry(45, "#VC-1 Fix", EntrySource.GIT, null, null)));
+    when(repository.findById(24L)).thenReturn(Optional.of(p));
+
+    // A hand-written entry claiming to be derived from git history must not be believed.
+    ProposalModel m =
+        service.editEntries(
+            24L, List.of(new ProposalEntryModel(90, "#VC-9 Invented", EntrySource.GIT, null, null)));
+
+    assertThat(m.getEntries().get(0).getSource()).isEqualTo(EntrySource.MANUAL);
+  }
+
+  @Test
+  void editEntries_matchesEachStoredEntryOnlyOnce() {
+    Proposal p = draftWithId(25L);
+    p.replaceEntries(List.of(new ProposalEntry(45, "#VC-1 Fix", EntrySource.GIT, null, null)));
+    when(repository.findById(25L)).thenReturn(Optional.of(p));
+
+    // Duplicating an entry keeps one as generated; the copy is a human addition.
+    ProposalModel m =
+        service.editEntries(
+            25L,
+            List.of(
+                new ProposalEntryModel(45, "#VC-1 Fix", null, null, null),
+                new ProposalEntryModel(45, "#VC-1 Fix", null, null, null)));
+
+    assertThat(m.getEntries().get(0).getSource()).isEqualTo(EntrySource.GIT);
+    assertThat(m.getEntries().get(1).getSource()).isEqualTo(EntrySource.MANUAL);
+  }
+
+  @Test
+  void editEntries_treatsDifferentPbiAsManual() {
+    Proposal p = draftWithId(26L);
+    p.replaceEntries(
+        List.of(new ProposalEntry(120, "#1 Work", EntrySource.MAIN_PBI_FILL, 1, "Work")));
+    when(repository.findById(26L)).thenReturn(Optional.of(p));
+
+    ProposalModel m =
+        service.editEntries(
+            26L, List.of(new ProposalEntryModel(120, "#1 Work", null, 2, "Work")));
+
+    assertThat(m.getEntries().get(0).getSource()).isEqualTo(EntrySource.MANUAL);
   }
 
   // -------- confirm --------
@@ -208,7 +320,7 @@ class ProposalServiceTest {
 
   private static Proposal draftWithBookableEntry(long id) {
     Proposal p = draftWithId(id);
-    p.replaceEntries(List.of(new ProposalEntry(120, "#1 x", "dev", 1, "x")));
+    p.replaceEntries(List.of(new ProposalEntry(120, "#1 x", EntrySource.MAIN_PBI_FILL, 1, "x")));
     return p;
   }
 
