@@ -102,5 +102,7 @@ daily-reports:
     #     session-gap-minutes: 90            # larger gaps split the day into sessions
     #     lead-in-minutes: 30                # added per session for work before the first commit
     #     fallback-ticket: ""                # bucket for commits without a ticket id
+    #     non-billable-patterns:             # no entry of their own; their minutes go to the
+    #       - "^updating poms"               # session's other tickets. Anchor with ^ where needed.
     #     fill-up-ticket: ""                 # set to fill the gap to the daily target on this ticket
     #     fill-up-note: "Development"        # note text of the fill-up entry

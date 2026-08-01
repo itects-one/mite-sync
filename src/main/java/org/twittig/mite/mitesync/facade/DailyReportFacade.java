@@ -3,6 +3,7 @@ package org.twittig.mite.mitesync.facade;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,7 @@ import org.twittig.mite.mitesync.service.GitActivityEstimator;
 import org.twittig.mite.mitesync.service.GitActivityResult;
 import org.twittig.mite.mitesync.service.GitActivityService;
 import org.twittig.mite.mitesync.service.GitCommit;
+import org.twittig.mite.mitesync.service.GitEstimate;
 import org.twittig.mite.mitesync.service.GoogleCalendarService;
 import org.twittig.mite.mitesync.service.MiteBookingService;
 import org.twittig.mite.mitesync.web.model.BookingResultModel;
@@ -111,12 +113,17 @@ public class DailyReportFacade {
     List<GitCommit> commits = activity.commits();
     List<MiteEntryModel> alreadyBooked = miteBookingService.getEntriesForDate(profile, date);
 
-    List<ProposalEntryModel> estimated =
+    GitEstimate estimate =
         gitActivityEstimator.estimate(
             commits, profile.getGit(), profile.getRules().getRoundingStepMinutes());
     List<ProposalEntryModel> proposal =
         bookingProposalService.buildGitProposal(
-            profile, estimated, alreadyBooked, pbiAssignment.getTargetHours());
+            profile, estimate.entries(), alreadyBooked, pbiAssignment.getTargetHours());
+
+    // Both halves of the run can have something to report: what could not be read, and what was
+    // read but could not be attributed.
+    List<String> warnings = new ArrayList<>(activity.warnings());
+    warnings.addAll(estimate.warnings());
 
     DailyReportModel m = newReport(date);
     m.setCalendarEvents(List.of());
@@ -124,7 +131,7 @@ public class DailyReportFacade {
     m.setOpenWorkItems(List.of());
     m.setAlreadyBookedInMite(alreadyBooked);
     m.setGitCommits(commits.stream().map(DailyReportFacade::toModel).toList());
-    m.setWarnings(activity.warnings());
+    m.setWarnings(warnings);
     setProposal(m, proposal);
     return m;
   }
