@@ -21,6 +21,13 @@ public final class EntrySource {
   /** Fill-up onto the configured git fill-up ticket, up to the daily target. */
   public static final String GIT_FILL = "git-fill";
 
+  /**
+   * Composed by the LLM agent from the day's evidence, and passed by {@code ProposalGuard}. Set
+   * server-side like every other value here — a model's own claim about where an entry came from is
+   * not evidence of anything.
+   */
+  public static final String AGENT = "agent";
+
   /** Written or changed by hand. */
   public static final String MANUAL = "manual";
 
