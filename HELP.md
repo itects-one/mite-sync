@@ -168,6 +168,13 @@ The UI is built into the jar, so a deployment needs nothing extra. For UI work w
 start the app and run `npm run dev` in `src/main/frontend`; it serves the UI on port 5173 and
 proxies the API calls to the running app on 8080.
 
+**Starting from an IDE?** `/` then answers with a Whitelabel error page saying
+*"No static resource"*. IDEs compile the module into `target/classes` themselves and do not run
+Maven's `generate-resources`, so the frontend build never happens and `target/classes/static`
+stays empty. Run `./mvnw generate-resources` once (or start with `./mvnw spring-boot:run`, which
+goes through the Maven lifecycle), then reload. In IntelliJ this can be automated by adding a
+Maven `generate-resources` step under "Before launch" in the run configuration.
+
 ## Authentication
 
 **Every endpoint requires HTTP basic authentication**, including the OpenAPI UI. Unauthenticated
