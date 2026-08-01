@@ -168,12 +168,20 @@ The UI is built into the jar, so a deployment needs nothing extra. For UI work w
 start the app and run `npm run dev` in `src/main/frontend`; it serves the UI on port 5173 and
 proxies the API calls to the running app on 8080.
 
-**Starting from an IDE?** `/` then answers with a Whitelabel error page saying
-*"No static resource"*. IDEs compile the module into `target/classes` themselves and do not run
-Maven's `generate-resources`, so the frontend build never happens and `target/classes/static`
-stays empty. Run `./mvnw generate-resources` once (or start with `./mvnw spring-boot:run`, which
-goes through the Maven lifecycle), then reload. In IntelliJ this can be automated by adding a
-Maven `generate-resources` step under "Before launch" in the run configuration.
+**Where the build output lands.** Vite writes into `src/main/resources/static`, not directly into
+`target/classes/static`. That looks roundabout but is deliberate: an IDE compiles the module with
+its own compiler, replacing `target/classes` without ever running Maven — the UI would vanish and
+`/` would answer with a Whitelabel *"No static resource"* page. From the resource folder every
+build copies it along, Maven's and the IDE's alike. The directory is generated, gitignored and
+removed by `mvn clean`; never edit or commit it.
+
+One case remains: a fresh clone that has never been built with Maven has no
+`src/main/resources/static` yet, so an IDE-only build finds nothing to copy. One `./mvnw
+generate-resources` (or any Maven build) fixes it for good.
+
+**Recommended for IntelliJ:** enable *Build, Execution, Deployment → Build Tools → Maven → Runner
+→ "Delegate IDE build/run actions to Maven"*. IDE builds then run the real Maven lifecycle
+including the frontend build, and the IDE stops shadowing the build tool at all.
 
 ## Authentication
 

@@ -1,12 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// The build writes straight into the Spring Boot classpath, so `mvn spring-boot:run` and the
-// packaged jar both serve the UI from / without an extra copy step.
+// The build writes into src/main/resources/static rather than straight into target/classes: an
+// IDE that compiles the module itself replaces target/classes without ever running Maven, and the
+// UI would silently disappear. From the resource folder it is copied along by whoever builds —
+// Maven or the IDE. The directory is generated and gitignored; `mvn clean` removes it.
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: '../../../target/classes/static',
+    outDir: '../resources/static',
     emptyOutDir: true,
   },
   test: {
