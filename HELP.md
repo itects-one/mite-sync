@@ -114,7 +114,9 @@ and confirmed — the foundation for a later scheduler + web UI.
   existing DRAFT for the same day is overwritten in place.
 - `GET /proposals` — list the inbox (newest report date first). `GET /proposals/{id}` — one item.
 - `PUT /proposals/{id}/entries` — replace the entries of a DRAFT (manual edit). Only allowed while
-  DRAFT (otherwise `409`). See **Entry provenance** below for what happens to `source`.
+  DRAFT (otherwise `409`), and every entry needs `minutes` between 1 and 1440 (otherwise `400`,
+  naming the offending row as `entries[0].minutes`). See **Entry provenance** below for what
+  happens to `source`.
 - `POST /proposals/{id}/confirm` — books the entries into Mite via the existing best-effort
   pipeline and records the outcome as `BOOKED`, `PARTIALLY_BOOKED` or `FAILED`. Only allowed while
   DRAFT, and only with entries: a day without activity generates a valid but empty proposal, and

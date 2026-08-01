@@ -13,5 +13,11 @@ export function todayIso() {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10)
 }
 
+/**
+ * Upper bound for a single entry, mirroring ProposalEntryModel.MAX_MINUTES. A full day — beyond
+ * that the server answers 400, and past 32767 the Mite write path would wrap the value negative.
+ */
+export const MAX_MINUTES = 24 * 60
+
 /** Entries the app derived from evidence, as opposed to what a human typed. */
 export const isGenerated = (source) => source != null && source !== 'manual'

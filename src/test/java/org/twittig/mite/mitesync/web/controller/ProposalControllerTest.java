@@ -3,6 +3,7 @@ package org.twittig.mite.mitesync.web.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -132,6 +133,65 @@ class ProposalControllerTest {
                     """))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.entries").exists());
+  }
+
+  @Test
+  void editEntries_returns_400_when_minutes_are_zero() throws Exception {
+    mockMvc
+        .perform(
+            put("/proposals/3/entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"entries": [{"minutes": 0, "note": "#655 Dev"}]}
+                    """))
+        .andExpect(status().isBadRequest())
+        // The field path names the offending row, not just the list.
+        .andExpect(jsonPath("$.['entries[0].minutes']").exists());
+
+    verify(service, never()).editEntries(any(), anyList());
+  }
+
+  @Test
+  void editEntries_returns_400_when_minutes_are_negative() throws Exception {
+    mockMvc
+        .perform(
+            put("/proposals/3/entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"entries": [{"minutes": -5, "note": "#655 Dev"}]}
+                    """))
+        .andExpect(status().isBadRequest());
+
+    verify(service, never()).editEntries(any(), anyList());
+  }
+
+  @Test
+  void editEntries_returns_400_when_minutes_exceed_a_day() throws Exception {
+    // 40000 would survive as an int and then wrap to a negative short in the Mite write path.
+    mockMvc
+        .perform(
+            put("/proposals/3/entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"entries": [{"minutes": 40000, "note": "#655 Dev"}]}
+                    """))
+        .andExpect(status().isBadRequest());
+
+    verify(service, never()).editEntries(any(), anyList());
+  }
+
+  @Test
+  void editEntries_accepts_a_full_day() throws Exception {
+    when(service.editEntries(eq(3L), anyList())).thenReturn(proposal(3L, ProposalStatus.DRAFT));
+
+    mockMvc
+        .perform(
+            put("/proposals/3/entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"entries": [{"minutes": 1440, "note": "#655 Dev"}]}
+                    """))
+        .andExpect(status().isOk());
   }
 
   @Test

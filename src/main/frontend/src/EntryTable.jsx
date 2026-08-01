@@ -1,4 +1,6 @@
-import { formatMinutes, isGenerated } from './format.js'
+import { MAX_MINUTES, formatMinutes, isGenerated } from './format.js'
+
+const clamp = (minutes) => Math.min(MAX_MINUTES, Math.max(0, Number(minutes) || 0))
 
 /**
  * The entries of a proposal. Editable only while DRAFT; afterwards the booked truth is shown
@@ -44,12 +46,12 @@ export default function EntryTable({ entries, editable, onChange }) {
                   <input
                     type="number"
                     min="0"
+                    max={MAX_MINUTES}
                     value={entry.minutes}
-                    // min="0" is only a form-validation hint and this form is never submitted, so
-                    // the clamp has to happen here — a negative value would otherwise be booked.
-                    onChange={(e) =>
-                      update(index, { minutes: Math.max(0, Number(e.target.value) || 0) })
-                    }
+                    // min/max are only form-validation hints and this form is never submitted, so
+                    // the clamp has to happen here. Both ends matter: a negative value would be
+                    // booked as such, and one past MAX_MINUTES is rejected by the server anyway.
+                    onChange={(e) => update(index, { minutes: clamp(Number(e.target.value)) })}
                   />
                 ) : (
                   <span className="mono">{entry.minutes}</span>

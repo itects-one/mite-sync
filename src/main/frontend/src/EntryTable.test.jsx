@@ -44,14 +44,23 @@ describe('EntryTable', () => {
     ])
   })
 
-  it('clamps a negative minute count', async () => {
+  it('clamps the minute count to a sane range', async () => {
     const onChange = vi.fn()
     render(<EntryTable entries={[{ minutes: 45, note: 'x', source: 'git' }]} editable onChange={onChange} />)
+    const input = screen.getByRole('spinbutton')
 
-    // min="0" is only a submit-time hint, and this form is never submitted.
-    await userEvent.type(screen.getByRole('spinbutton'), '{backspace}{backspace}-5')
+    // min/max are only submit-time hints, and this form is never submitted.
+    await userEvent.type(input, '{backspace}{backspace}-5')
+    await userEvent.type(input, '{backspace}{backspace}40000')
 
-    expect(onChange.mock.calls.every(([entries]) => entries[0].minutes >= 0)).toBe(true)
+    expect(
+      onChange.mock.calls.every(([entries]) => entries[0].minutes >= 0 && entries[0].minutes <= 1440),
+    ).toBe(true)
+  })
+
+  it('shows the upper bound on the input', () => {
+    render(<EntryTable entries={[{ minutes: 45, note: 'x', source: 'git' }]} editable onChange={() => {}} />)
+    expect(screen.getByRole('spinbutton').getAttribute('max')).toBe('1440')
   })
 
   it('adds a row marked as manual', async () => {
