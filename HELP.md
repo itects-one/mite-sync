@@ -143,6 +143,46 @@ provenance it was generated with — it was not touched. Everything changed or a
 `manual`. Editing therefore never silently erases where an entry came from, and a caller cannot
 label hand-written work as derived from evidence.
 
+## Web UI
+
+The proposal inbox has a small single-page app at **`/`** (so `http://localhost:8080/` after
+`./mvnw spring-boot:run`). It covers the whole review loop:
+
+- **Inbox** — every proposal, newest report date first, with date, profile, status and total.
+- **Generate** — pick a profile and date; the form asks for a main PBI only where the profile
+  needs one, and takes the daily target from the profile unless you override it. Regenerating
+  overwrites an existing `DRAFT` for that day in place, so it never produces duplicates.
+- **Detail** — the entries of a proposal, editable while `DRAFT` and read-only afterwards. Each
+  entry shows its `source`, so a derived entry stays distinguishable from a hand-written one.
+- **Confirm** — books the stored entries and shows what was created and what failed.
+
+Two guards are deliberate. Confirming is blocked while there are unsaved changes, because it books
+what is stored and not what is on screen. And a proposal without entries can neither be saved
+(the API rejects an empty list with 400) nor confirmed — to get rid of it, delete it.
+
+Authentication is the same HTTP basic auth as for the API: the browser asks once and then sends
+the credentials with every request. There is consequently no logout button — closing the browser
+is the way out.
+
+The UI is built into the jar, so a deployment needs nothing extra. For UI work with hot reload,
+start the app and run `npm run dev` in `src/main/frontend`; it serves the UI on port 5173 and
+proxies the API calls to the running app on 8080.
+
+**Where the build output lands.** Vite writes into `src/main/resources/static`, not directly into
+`target/classes/static`. That looks roundabout but is deliberate: an IDE compiles the module with
+its own compiler, replacing `target/classes` without ever running Maven — the UI would vanish and
+`/` would answer with a Whitelabel *"No static resource"* page. From the resource folder every
+build copies it along, Maven's and the IDE's alike. The directory is generated, gitignored and
+removed by `mvn clean`; never edit or commit it.
+
+One case remains: a fresh clone that has never been built with Maven has no
+`src/main/resources/static` yet, so an IDE-only build finds nothing to copy. One `./mvnw
+generate-resources` (or any Maven build) fixes it for good.
+
+**Recommended for IntelliJ:** enable *Build, Execution, Deployment → Build Tools → Maven → Runner
+→ "Delegate IDE build/run actions to Maven"*. IDE builds then run the real Maven lifecycle
+including the frontend build, and the IDE stops shadowing the build tool at all.
+
 ## Authentication
 
 **Every endpoint requires HTTP basic authentication**, including the OpenAPI UI. Unauthenticated

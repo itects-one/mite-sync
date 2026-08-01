@@ -1,0 +1,14 @@
+# Host build output has no business in the image build context. node_modules matters most: it is
+# large and holds platform-specific binaries that would be wrong inside the linux container —
+# the build runs `npm ci` itself.
+target/
+src/main/frontend/node_modules/
+src/main/frontend/dist/
+
+.git/
+.github/
+.idea/
+.vscode/
+
+.env
+*.md

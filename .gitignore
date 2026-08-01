@@ -33,6 +33,13 @@ build/
 /.java-version
 /.claude/
 
+### Frontend ###
+# Node itself is downloaded into target/ by frontend-maven-plugin; package-lock.json is committed.
+node_modules/
+# Build output of the SPA. It lives in the resource folder so that an IDE build copies it along
+# (see vite.config.js), but it is generated — never edit or commit it.
+src/main/resources/static/
+
 ### macOS ###
 .DS_Store
 

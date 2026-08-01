@@ -80,6 +80,16 @@ All runtime config lives in `src/main/resources/application.yml` and is overridd
 
 Google OAuth artifacts (`google-client-secret.json`, `google-tokens/`) live under `~/.mite-sync/` on the host and are bind-mounted into the container.
 
+### Web UI (`src/main/frontend`)
+
+A React + Vite SPA for the proposal inbox, served at `/`. `frontend-maven-plugin` downloads Node into `target/` (so Dockerfile and CI stay Node-free), runs `npm ci` and `npm run build` in `generate-resources` plus `npm test` (vitest) in the `test` phase. `-Dfrontend.skip=true` turns the whole frontend build off; `-DskipTests` skips vitest along with surefire, because the plugin's mojo honours `skipTests` for executions bound to `test`. The Docker image build therefore runs no tests at all — that is fine, since the `docker` job `needs: verify`, so nothing is built from a commit whose full suite has not passed. `.dockerignore` keeps the host's `node_modules` out of the build context; without it the image would inherit macOS-native binaries.
+
+Things that are easy to get wrong here:
+- **Vite's `outDir` is `src/main/resources/static`, not `target/classes/static`** — deliberately. An IDE compiles the module with its own compiler and replaces `target/classes` without running Maven, which made the UI vanish and `/` answer with a Whitelabel "No static resource" page. From the resource folder every builder copies it along. The directory is generated, gitignored, and wired into `maven-clean-plugin` so `mvn clean` removes it. Only a fresh clone never built with Maven still starts empty.
+- Routing is **hash-based** (`#/proposals/{id}`) on purpose — no forwarding controller and no history-API fallback are needed, and deep links survive a reload.
+- The UI adds no Java, so it does not move the JaCoCo needle; its own tests run under vitest/jsdom and are wired into `verify` via the plugin. A green Java build alone no longer proves the app works.
+- Confirming is disabled while the entry list is dirty: `confirm` books what is **stored**, not what the form shows. Same reason an empty proposal can neither be saved (400 from `@NotEmpty`) nor confirmed (issue #18 would report BOOKED without booking).
+
 ### Security
 
 `SecurityConfig` (package `config`) locks **every** endpoint behind HTTP basic auth — there is no public path, not even the OpenAPI UI. CSRF is disabled and sessions are stateless because this is a REST API for HTTP clients, not a browser form application.
