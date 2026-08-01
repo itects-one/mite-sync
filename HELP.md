@@ -47,11 +47,23 @@ heuristic:
    `session-gap-minutes` (default 90) starts a new session.
 2. A session lasts from its first to its last commit plus `lead-in-minutes` (default 30) for
    the work before the first commit; a single-commit session counts `lead-in-minutes`.
-3. The session duration is split across tickets proportionally to their commit counts. The
-   ticket id comes from `ticket-pattern` (default `^([A-Z]+-\d+)`) matched against the commit
-   subject; unmatched commits fall into the `fallback-ticket` bucket.
-4. Per-ticket totals are rounded **up** to the profile's rounding step; the proposal note is
+3. Commits matching one of `non-billable-patterns` get no entry — release mechanics, generated
+   version bumps and the like. They still belong to their session, so the minutes they would
+   have claimed are spread over the session's other commits instead of disappearing; a session
+   consisting only of such commits contributes nothing. The patterns are matched against the
+   commit subject with `find()`, so anchor them with `^` where the match has to sit at the
+   start (`^updating poms` does not drop `FOO-1: updating poms is not the point`).
+4. The session duration is split across the remaining tickets proportionally to their commit
+   counts. The ticket id comes from `ticket-pattern` (default `^([A-Z]+-\d+)`) matched against
+   the commit subject; unmatched commits fall into the `fallback-ticket` bucket.
+5. Per-ticket totals are rounded **up** to the profile's rounding step; the proposal note is
    `#<ticket> <subject of the ticket's latest commit>`.
+
+When `fallback-ticket` is blank, the unmatched commits produce an entry whose note is just the
+commit subject — no `#<ticket>` prefix, but the full share of session minutes. Such an entry is
+reported in `warnings`, because it looks like any other in the review and the missing `#` is the
+only sign that it would reach the time-tracking system without a ticket reference. Either give
+the profile a `fallback-ticket` or list the commits under `non-billable-patterns`.
 
 A repository that cannot be read (a path that has moved, a corrupt checkout) is skipped so one
 broken entry does not take down the whole preview — but the skip is reported in the `warnings`

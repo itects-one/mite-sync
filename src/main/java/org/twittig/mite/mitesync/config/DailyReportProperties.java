@@ -154,6 +154,15 @@ public class DailyReportProperties {
     private String fallbackTicket = "";
 
     /**
+     * Regexes for commits that are not billable — release mechanics, generated version bumps and
+     * the like. Matched against the commit subject with {@code find()}, so anchor with {@code ^}
+     * where the match has to sit at the start. A matching commit gets no entry of its own; it stays
+     * part of its session, so its share of the session's minutes is redistributed over the
+     * session's remaining commits rather than lost.
+     */
+    private List<String> nonBillablePatterns = new ArrayList<>();
+
+    /**
      * When set, the gap between the estimated entries and the daily target is filled with one
      * entry on this ticket. Blank (default) = book only what the history shows.
      */
@@ -208,6 +217,15 @@ public class DailyReportProperties {
 
     public void setFallbackTicket(String fallbackTicket) {
       this.fallbackTicket = fallbackTicket;
+    }
+
+    public List<String> getNonBillablePatterns() {
+      return nonBillablePatterns;
+    }
+
+    public void setNonBillablePatterns(List<String> nonBillablePatterns) {
+      this.nonBillablePatterns =
+          nonBillablePatterns == null ? new ArrayList<>() : nonBillablePatterns;
     }
 
     public String getFillUpTicket() {

@@ -27,15 +27,20 @@ class GitActivityEstimatorTest {
   }
 
   private List<ProposalEntryModel> estimate(GitCommit... commits) {
-    return estimator.estimate(List.of(commits), config, 15);
+    return estimator.estimate(List.of(commits), config, 15).entries();
+  }
+
+  private List<String> warningsOf(GitCommit... commits) {
+    return estimator.estimate(List.of(commits), config, 15).warnings();
   }
 
   // -------- Basics --------
 
   @Test
   void noCommits_returnsEmptyProposal() {
-    assertThat(estimator.estimate(List.of(), config, 15)).isEmpty();
-    assertThat(estimator.estimate(null, config, 15)).isEmpty();
+    assertThat(estimator.estimate(List.of(), config, 15).entries()).isEmpty();
+    assertThat(estimator.estimate(null, config, 15).entries()).isEmpty();
+    assertThat(estimator.estimate(null, config, 15).warnings()).isEmpty();
   }
 
   @Test
@@ -168,6 +173,122 @@ class GitActivityEstimatorTest {
     List<ProposalEntryModel> result = estimate(commit(0, "VC-9"));
 
     assertThat(result.get(0).getNote()).isEqualTo("#VC-9 (no subject)");
+  }
+
+  // -------- Non-billable commits --------
+
+  @Test
+  void nonBillableCommit_getsNoEntryAndItsShareGoesToTheDaysTickets() {
+    config.setNonBillablePatterns(List.of("^updating (develop )?poms"));
+
+    // One session 09:00–10:00 + 30 lead-in = 90 min. Without the pattern VC-1 would only get
+    // 90 * 2/3 = 60 and the release commit a 30 min entry of its own.
+    List<ProposalEntryModel> result =
+        estimate(
+            commit(0, "VC-1: Part one"),
+            commit(30, "updating poms for branch"),
+            commit(60, "VC-1: Part two"));
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getNote()).isEqualTo("#VC-1 Part two");
+    assertThat(result.get(0).getMinutes()).isEqualTo(90);
+  }
+
+  @Test
+  void redistributionIsProportional_andKeepsTheDayTotal() {
+    config.setNonBillablePatterns(List.of("^updating poms"));
+
+    // 60 span + 30 lead-in = 90 min over three billable commits: VC-1 two, VC-2 one.
+    List<ProposalEntryModel> result =
+        estimate(
+            commit(0, "VC-1: Part one"),
+            commit(20, "VC-1: Part two"),
+            commit(40, "VC-2: Other work"),
+            commit(60, "updating poms for branch"));
+
+    assertThat(byNotePrefix(result, "#VC-1").getMinutes()).isEqualTo(60);
+    assertThat(byNotePrefix(result, "#VC-2").getMinutes()).isEqualTo(30);
+    assertThat(result.stream().mapToInt(ProposalEntryModel::getMinutes).sum()).isEqualTo(90);
+  }
+
+  @Test
+  void sessionOfOnlyNonBillableCommits_contributesNothing() {
+    config.setNonBillablePatterns(List.of("^updating poms"));
+
+    // Two sessions (gap 240): the first is release mechanics only, the second real work.
+    List<ProposalEntryModel> result =
+        estimate(commit(0, "updating poms for branch"), commit(240, "VC-1: Real work"));
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getNote()).isEqualTo("#VC-1 Real work");
+    assertThat(result.get(0).getMinutes()).isEqualTo(30);
+  }
+
+  @Test
+  void dayOfOnlyNonBillableCommits_producesNoEntriesAtAll() {
+    config.setNonBillablePatterns(List.of("^updating poms"));
+
+    assertThat(estimate(commit(0, "updating poms"), commit(30, "updating poms"))).isEmpty();
+  }
+
+  @Test
+  void anchoredPatternDoesNotMatchInTheMiddleOfASubject() {
+    config.setNonBillablePatterns(List.of("^updating poms"));
+
+    List<ProposalEntryModel> result = estimate(commit(0, "VC-1: updating poms is not the point"));
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getNote()).isEqualTo("#VC-1 updating poms is not the point");
+  }
+
+  @Test
+  void blankPatternsAreIgnored() {
+    config.setNonBillablePatterns(List.of("  "));
+
+    assertThat(estimate(commit(0, "VC-1: Work"))).hasSize(1);
+  }
+
+  // -------- Warning about entries without a ticket reference --------
+
+  @Test
+  void ticketlessEntry_isReportedWithItsNoteAndMinutes() {
+    List<String> warnings = warningsOf(commit(0, "update .gitignore"));
+
+    assertThat(warnings).hasSize(1);
+    assertThat(warnings.get(0))
+        .contains("1 commit has")
+        .contains("\"update .gitignore\"")
+        .contains("30 min")
+        .contains("fallback-ticket");
+  }
+
+  @Test
+  void severalTicketlessCommits_areReportedTogether() {
+    List<String> warnings = warningsOf(commit(0, "update .gitignore"), commit(30, "fix a typo"));
+
+    assertThat(warnings).hasSize(1);
+    assertThat(warnings.get(0)).contains("2 commits have").contains("\"fix a typo\"");
+  }
+
+  @Test
+  void ticketlessCommit_withFallbackTicket_isNotReported() {
+    // The entry carries "#MISC", so nothing reaches Mite without a reference.
+    config.setFallbackTicket("MISC");
+
+    assertThat(warningsOf(commit(0, "update .gitignore"))).isEmpty();
+  }
+
+  @Test
+  void ticketlessCommit_thatIsNonBillable_isNotReported() {
+    // It produces no entry at all, so there is nothing to review.
+    config.setNonBillablePatterns(List.of("^update \\.gitignore"));
+
+    assertThat(warningsOf(commit(0, "update .gitignore"), commit(30, "VC-1: Work"))).isEmpty();
+  }
+
+  @Test
+  void commitsWithTicketIds_produceNoWarning() {
+    assertThat(warningsOf(commit(0, "VC-1: Work"), commit(30, "VC-2: More work"))).isEmpty();
   }
 
   private static ProposalEntryModel byNotePrefix(List<ProposalEntryModel> entries, String prefix) {

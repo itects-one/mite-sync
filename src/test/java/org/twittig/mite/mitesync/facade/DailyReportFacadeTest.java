@@ -27,6 +27,7 @@ import org.twittig.mite.mitesync.service.GitActivityEstimator;
 import org.twittig.mite.mitesync.service.GitActivityResult;
 import org.twittig.mite.mitesync.service.GitActivityService;
 import org.twittig.mite.mitesync.service.GitCommit;
+import org.twittig.mite.mitesync.service.GitEstimate;
 import org.twittig.mite.mitesync.service.GoogleCalendarService;
 import org.twittig.mite.mitesync.service.MiteBookingService;
 import org.twittig.mite.mitesync.web.model.BookingResultModel;
@@ -192,7 +193,7 @@ class DailyReportFacadeTest {
         .thenReturn(new GitActivityResult(List.of(commit), List.of("Repository 'x' could not be read: gone")));
     when(miteBookingService.getEntriesForDate(profile, date)).thenReturn(List.of(booked));
     when(gitActivityEstimator.estimate(List.of(commit), profile.getGit(), 15))
-        .thenReturn(List.of(estimated));
+        .thenReturn(new GitEstimate(List.of(estimated), List.of("VC-0 has no ticket id")));
     when(bookingProposalService.buildGitProposal(profile, List.of(estimated), List.of(booked), null))
         .thenReturn(List.of(proposed));
 
@@ -209,8 +210,9 @@ class DailyReportFacadeTest {
     assertThat(result.getGitCommits()).hasSize(1);
     assertThat(result.getGitCommits().get(0).getTime()).isEqualTo("09:30");
     assertThat(result.getGitCommits().get(0).getSubject()).isEqualTo("VC-1: Fix the thing");
-    // Warnings from the repository read reach the response instead of ending in the log alone.
-    assertThat(result.getWarnings()).containsExactly("Repository 'x' could not be read: gone");
+    // Both halves report: what could not be read, and what could not be attributed to a ticket.
+    assertThat(result.getWarnings())
+        .containsExactly("Repository 'x' could not be read: gone", "VC-0 has no ticket id");
     verifyNoInteractions(googleCalendarService, azureDevOpsService);
   }
 
@@ -225,7 +227,8 @@ class DailyReportFacadeTest {
     when(gitActivityService.getCommitsForDay(any(), any()))
             .thenReturn(new GitActivityResult(List.of(), List.of()));
     when(miteBookingService.getEntriesForDate(eq(profile), any())).thenReturn(List.of());
-    when(gitActivityEstimator.estimate(any(), any(), anyInt())).thenReturn(List.of());
+    when(gitActivityEstimator.estimate(any(), any(), anyInt()))
+        .thenReturn(new GitEstimate(List.of(), List.of()));
     when(bookingProposalService.buildGitProposal(any(), any(), any(), any())).thenReturn(List.of());
 
     facade.preview("git", date, pbi);
