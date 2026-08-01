@@ -68,6 +68,31 @@ describe('App', () => {
     expect(api.generateProposal).toHaveBeenCalledWith('side', expect.any(String), {})
   })
 
+  it('does not send a main PBI the user cannot see', async () => {
+    api.generateProposal.mockResolvedValue({ id: 7 })
+    render(<App />)
+
+    // Typed for a calendar-devops profile, then switched to one that hides the field.
+    await userEvent.type(await screen.findByLabelText(/Main PBI/), '12345')
+    await userEvent.selectOptions(screen.getByLabelText(/Profile/), 'side')
+    await userEvent.click(screen.getByRole('button', { name: 'Generate' }))
+
+    expect(api.generateProposal).toHaveBeenCalledWith('side', expect.any(String), {})
+  })
+
+  it('does not leave the inbox loading when the list fails', async () => {
+    api.listProposals.mockRejectedValue(new Error('Not authenticated'))
+
+    render(<App />)
+
+    expect(await screen.findByText(/Could not load the inbox/)).toBeDefined()
+    expect(screen.queryByText('Loading…')).toBeNull()
+
+    api.listProposals.mockResolvedValue([])
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText(/No proposals yet/)).toBeDefined()
+  })
+
   it('surfaces an API error in a banner', async () => {
     api.listProfiles.mockRejectedValue(new Error('Not authenticated'))
 

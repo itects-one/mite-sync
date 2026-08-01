@@ -6,12 +6,20 @@ import { formatMinutes } from './format.js'
 
 export default function Inbox({ profiles, onError }) {
   const [proposals, setProposals] = useState(null)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const reload = useCallback(
     () =>
       listProposals()
-        .then(setProposals)
-        .catch((e) => onError(e.message)),
+        .then((p) => {
+          setProposals(p)
+          setLoadFailed(false)
+        })
+        .catch((e) => {
+          // Otherwise the list would sit on "Loading…" while the banner reports the failure.
+          setLoadFailed(true)
+          onError(e.message)
+        }),
     [onError],
   )
 
@@ -25,7 +33,15 @@ export default function Inbox({ profiles, onError }) {
 
       <section className="card">
         <h2>Inbox</h2>
-        {proposals === null && <p className="muted">Loading…</p>}
+        {proposals === null && !loadFailed && <p className="muted">Loading…</p>}
+        {proposals === null && loadFailed && (
+          <p>
+            Could not load the inbox.{' '}
+            <button type="button" className="link" onClick={reload}>
+              Try again
+            </button>
+          </p>
+        )}
         {proposals !== null && proposals.length === 0 && (
           <p className="muted">No proposals yet — generate one above.</p>
         )}

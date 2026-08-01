@@ -63,6 +63,38 @@ describe('api', () => {
     await expect(listProposals()).rejects.toThrow(/Not authenticated/)
   })
 
+  it('explains a 401 even when it arrives as Boot error JSON', async () => {
+    // The entry point sends the 401 through /error, so a body is present — the status has to be
+    // checked first or this message would never be reached.
+    mockFetch(
+      failure(401, {
+        timestamp: '2026-08-01T07:00:00.000+00:00',
+        status: 401,
+        error: 'Unauthorized',
+        path: '/proposals',
+      }),
+    )
+    await expect(listProposals()).rejects.toThrow(/Not authenticated/)
+  })
+
+  it('does not read Boot error bodies as a field map', async () => {
+    // Joining the values would show a timestamp and a path instead of a cause.
+    mockFetch(
+      failure(500, {
+        timestamp: '2026-08-01T07:00:00.000+00:00',
+        status: 500,
+        error: 'Internal Server Error',
+        path: '/proposals/default/2026-13-99',
+      }),
+    )
+    await expect(listProposals()).rejects.toThrow('500 Internal Server Error')
+  })
+
+  it('falls back to the status line for a non-JSON body', async () => {
+    mockFetch(failure(502))
+    await expect(listProposals()).rejects.toThrow('502 Error')
+  })
+
   it('carries the status on the error', async () => {
     mockFetch(failure(404, { proposal: 'unknown' }))
     await expect(listProposals()).rejects.toMatchObject({ name: 'ApiError', status: 404 })

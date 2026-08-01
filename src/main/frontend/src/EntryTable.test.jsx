@@ -44,6 +44,16 @@ describe('EntryTable', () => {
     ])
   })
 
+  it('clamps a negative minute count', async () => {
+    const onChange = vi.fn()
+    render(<EntryTable entries={[{ minutes: 45, note: 'x', source: 'git' }]} editable onChange={onChange} />)
+
+    // min="0" is only a submit-time hint, and this form is never submitted.
+    await userEvent.type(screen.getByRole('spinbutton'), '{backspace}{backspace}-5')
+
+    expect(onChange.mock.calls.every(([entries]) => entries[0].minutes >= 0)).toBe(true)
+  })
+
   it('adds a row marked as manual', async () => {
     const onChange = vi.fn()
     render(<EntryTable entries={entries} editable onChange={onChange} />)

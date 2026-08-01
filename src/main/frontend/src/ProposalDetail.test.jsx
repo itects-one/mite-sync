@@ -110,12 +110,46 @@ describe('ProposalDetail', () => {
     expect(api.deleteProposal).toHaveBeenCalledWith(1)
   })
 
-  it('surfaces a failed load', async () => {
+  it('surfaces a failed load instead of loading forever', async () => {
     api.getProposal.mockRejectedValue(new Error('proposal 9 not found'))
     const onError = vi.fn()
 
     render(<ProposalDetail id={9} onError={onError} />)
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith('proposal 9 not found'))
+    // A stale bookmark must not leave the page claiming to be loading, and the way back has to
+    // stay reachable.
+    expect(await screen.findByText(/Could not load proposal 9/)).toBeDefined()
+    expect(screen.queryByText('Loading…')).toBeNull()
+    expect(screen.getByRole('link', { name: /Inbox/ })).toBeDefined()
+
+    api.getProposal.mockResolvedValue(draft())
+    await userEvent.click(button('Try again'))
+    expect(await screen.findByDisplayValue('#VC-1 Fix')).toBeDefined()
+  })
+
+  it('discards changes back to the stored entries', async () => {
+    render(<ProposalDetail id={1} onError={() => {}} />)
+    await screen.findByDisplayValue('#VC-1 Fix')
+
+    await userEvent.click(screen.getByRole('button', { name: 'remove' }))
+    expect(screen.getByText('No entries.')).toBeDefined()
+
+    // Removing the last row must not be a dead end: saving is impossible, so without this the
+    // only escapes would be a reload or deleting the proposal.
+    await userEvent.click(button('Discard changes'))
+
+    expect(await screen.findByDisplayValue('#VC-1 Fix')).toBeDefined()
+    expect(button('Confirm & book').disabled).toBe(false)
+  })
+
+  it('refuses to save an entry of zero minutes', async () => {
+    render(<ProposalDetail id={1} onError={() => {}} />)
+    await screen.findByDisplayValue('#VC-1 Fix')
+
+    await userEvent.clear(screen.getByRole('spinbutton'))
+
+    expect(button('Save entries').disabled).toBe(true)
+    expect(screen.getByText(/more than zero minutes/)).toBeDefined()
   })
 })

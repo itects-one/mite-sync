@@ -45,7 +45,11 @@ export default function EntryTable({ entries, editable, onChange }) {
                     type="number"
                     min="0"
                     value={entry.minutes}
-                    onChange={(e) => update(index, { minutes: Number(e.target.value) })}
+                    // min="0" is only a form-validation hint and this form is never submitted, so
+                    // the clamp has to happen here — a negative value would otherwise be booked.
+                    onChange={(e) =>
+                      update(index, { minutes: Math.max(0, Number(e.target.value) || 0) })
+                    }
                   />
                 ) : (
                   <span className="mono">{entry.minutes}</span>

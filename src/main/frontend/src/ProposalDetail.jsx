@@ -11,6 +11,7 @@ export default function ProposalDetail({ id, onError }) {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
   const [armedForDelete, setArmedForDelete] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const load = useCallback(
     () =>
@@ -18,8 +19,14 @@ export default function ProposalDetail({ id, onError }) {
         .then((p) => {
           setProposal(p)
           setEntries(p.entries)
+          setLoadFailed(false)
         })
-        .catch((e) => onError(e.message)),
+        .catch((e) => {
+          // Without this the view would claim to be loading forever — a stale bookmark or a
+          // proposal deleted in another tab both end up here.
+          setLoadFailed(true)
+          onError(e.message)
+        }),
     [id, onError],
   )
 
@@ -27,12 +34,35 @@ export default function ProposalDetail({ id, onError }) {
     load()
   }, [load])
 
+  const breadcrumb = (
+    <p className="breadcrumb">
+      <a href="#/">← Inbox</a>
+    </p>
+  )
+
   if (proposal === null) {
-    return <p className="muted">Loading…</p>
+    return (
+      <>
+        {breadcrumb}
+        {loadFailed ? (
+          <section className="card">
+            <p>Could not load proposal {id}. See the message above.</p>
+            <button type="button" onClick={load}>
+              Try again
+            </button>
+          </section>
+        ) : (
+          <p className="muted">Loading…</p>
+        )}
+      </>
+    )
   }
 
   const isDraft = proposal.status === 'DRAFT'
   const dirty = JSON.stringify(entries) !== JSON.stringify(proposal.entries)
+  // An entry of zero minutes books nothing; a cleared input lands here too.
+  const hasEmptyEntry = entries.some((e) => !(Number(e.minutes) > 0))
+  const savable = dirty && entries.length > 0 && !hasEmptyEntry
 
   async function run(action) {
     setBusy(true)
@@ -69,9 +99,7 @@ export default function ProposalDetail({ id, onError }) {
 
   return (
     <>
-      <p className="breadcrumb">
-        <a href="#/">← Inbox</a>
-      </p>
+      {breadcrumb}
 
       <section className="card">
         <div className="detail-head">
@@ -89,10 +117,14 @@ export default function ProposalDetail({ id, onError }) {
 
         {isDraft && entries.length === 0 && (
           <p className="hint">
-            A proposal cannot be saved without entries. To get rid of it entirely, delete it.
+            A proposal cannot be saved without entries. Discard your changes to get the stored ones
+            back, or delete the proposal to get rid of it entirely.
           </p>
         )}
-        {isDraft && dirty && entries.length > 0 && (
+        {isDraft && hasEmptyEntry && entries.length > 0 && (
+          <p className="hint">Every entry needs more than zero minutes.</p>
+        )}
+        {isDraft && dirty && savable && (
           <p className="hint">Unsaved changes — save them before confirming.</p>
         )}
         {!isDraft && (
@@ -104,9 +136,19 @@ export default function ProposalDetail({ id, onError }) {
         <div className="actions">
           {isDraft && (
             <>
-              <button type="button" onClick={save} disabled={busy || !dirty || entries.length === 0}>
+              <button type="button" onClick={save} disabled={busy || !savable}>
                 Save entries
               </button>
+              {dirty && (
+                <button
+                  type="button"
+                  onClick={() => setEntries(proposal.entries)}
+                  disabled={busy}
+                  title="Back to the stored entries"
+                >
+                  Discard changes
+                </button>
+              )}
               <button
                 type="button"
                 className="primary"

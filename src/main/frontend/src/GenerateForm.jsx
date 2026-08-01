@@ -30,8 +30,10 @@ export default function GenerateForm({ profiles, onError, onGenerated }) {
     setBusy(true)
     try {
       // Omit what the user left empty — the server falls back to the profile's own defaults.
+      // The main PBI only goes out where the profile asks for one: otherwise its input is hidden
+      // and we would send a value the user cannot see.
       const assignment = {}
-      if (mainPbiId !== '') assignment.mainPbiId = Number(mainPbiId)
+      if (needsMainPbi && mainPbiId !== '') assignment.mainPbiId = Number(mainPbiId)
       if (targetHours !== '') assignment.targetHours = Number(targetHours)
 
       const proposal = await generateProposal(profileKey, date, assignment)
