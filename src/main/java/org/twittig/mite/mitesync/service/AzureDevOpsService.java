@@ -45,9 +45,9 @@ public class AzureDevOpsService {
 
   /**
    * Returns all work items that the current user (= PAT owner) created or changed on the given
-   * date.
+   * date, plus a warning per call that failed.
    */
-  public List<WorkItemModel> getWorkItemsChangedByMeOnDate(LocalDate date) {
+  public WorkItemResult getWorkItemsChangedByMeOnDate(LocalDate date) {
     String wiql =
         "SELECT [System.Id] FROM WorkItems "
             + "WHERE [System.TeamProject] = '" + project + "' "
@@ -55,23 +55,29 @@ public class AzureDevOpsService {
             + "AND [System.ChangedDate] < '" + date + "T23:59:59.9999999' "
             + "AND ([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me) "
             + "ORDER BY [System.ChangedDate] DESC";
-    return queryAndFetch(wiql, true, false);
+    return queryAndFetch(wiql, "work items changed today", true, false);
   }
 
-  /** Returns all work items currently assigned to the user that are not in a terminal state. */
-  public List<WorkItemModel> getOpenWorkItemsAssignedToMe() {
+  /**
+   * Returns all work items currently assigned to the user that are not in a terminal state, plus a
+   * warning per call that failed.
+   */
+  public WorkItemResult getOpenWorkItemsAssignedToMe() {
     String wiql =
         "SELECT [System.Id] FROM WorkItems "
             + "WHERE [System.TeamProject] = '" + project + "' "
             + "AND [System.AssignedTo] = @Me "
             + "AND [System.State] NOT IN ('Done','Removed','Closed') "
             + "ORDER BY [System.ChangedDate] DESC";
-    return queryAndFetch(wiql, false, true);
+    return queryAndFetch(wiql, "open work items assigned to me", false, true);
   }
 
-  /** Returns a single work item by id (for title/state lookups). */
+  /**
+   * Returns a single work item by id (for title/state lookups), or {@code null} when it cannot be
+   * fetched. No warning channel: the caller of a single lookup sees the missing item itself.
+   */
   public WorkItemModel getWorkItemById(int id) {
-    List<WorkItemModel> result = batchFetch(List.of(id));
+    List<WorkItemModel> result = batchFetch(List.of(id), new ArrayList<>());
     return result.isEmpty() ? null : result.get(0);
   }
 
@@ -79,7 +85,9 @@ public class AzureDevOpsService {
   // Internals
   // ---------------------------------------------------------------------------
 
-  private List<WorkItemModel> queryAndFetch(String wiql, boolean markChangedByMe, boolean markAssignedToMe) {
+  private WorkItemResult queryAndFetch(
+      String wiql, String queryLabel, boolean markChangedByMe, boolean markAssignedToMe) {
+    List<String> warnings = new ArrayList<>();
     try {
       // URLEncoder produces form-encoding (space → "+"). Azure DevOps URL paths need
       // percent-encoding ("%20") instead, so we patch the output.
@@ -96,27 +104,42 @@ public class AzureDevOpsService {
           .build();
       HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
       if (resp.statusCode() / 100 != 2) {
+        // The body goes to the log only: a 401 answers with a sign-in page, not with a sentence.
         log.error("WIQL query failed: HTTP {} — {}", resp.statusCode(), resp.body());
-        return List.of();
+        warnings.add(
+            "Azure DevOps query for " + queryLabel + " failed: HTTP " + resp.statusCode()
+                + ". The report shows no DevOps activity for this reason, not because there"
+                + " was none.");
+        return new WorkItemResult(List.of(), warnings);
       }
       JsonNode root = objectMapper.readTree(resp.body());
       List<Integer> ids = new ArrayList<>();
       root.path("workItems").forEach(n -> ids.add(n.path("id").asInt()));
-      if (ids.isEmpty()) return List.of();
+      if (ids.isEmpty()) return WorkItemResult.of(List.of());
 
-      List<WorkItemModel> items = batchFetch(ids);
+      List<WorkItemModel> items = batchFetch(ids, warnings);
       items.forEach(w -> {
         if (markChangedByMe) w.setChangedByMe(true);
         if (markAssignedToMe) w.setAssignedToMe(true);
       });
-      return items;
+      return new WorkItemResult(items, warnings);
     } catch (Exception e) {
       log.error("Azure DevOps WIQL query failed", e);
-      return List.of();
+      warnings.add(
+          "Azure DevOps query for " + queryLabel + " failed: " + e.getClass().getSimpleName()
+              + " — " + e.getMessage()
+              + ". The report shows no DevOps activity for this reason, not because there was"
+              + " none.");
+      return new WorkItemResult(List.of(), warnings);
     }
   }
 
-  private List<WorkItemModel> batchFetch(List<Integer> ids) {
+  /**
+   * Fetches the fields of the given ids. Failures are appended to {@code warnings} rather than
+   * thrown: this call sits behind a successful WIQL query, so failing here is the quietest way to
+   * lose work items — the ids were found, only their contents never arrive.
+   */
+  private List<WorkItemModel> batchFetch(List<Integer> ids, List<String> warnings) {
     try {
       URI uri = URI.create(
           "https://dev.azure.com/" + organization + "/_apis/wit/workitemsbatch?api-version=" + API_VERSION);
@@ -138,6 +161,9 @@ public class AzureDevOpsService {
       HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
       if (resp.statusCode() / 100 != 2) {
         log.error("WorkItemsBatch failed: HTTP {} — {}", resp.statusCode(), resp.body());
+        warnings.add(
+            "Azure DevOps returned " + ids.size() + " work item(s) but their details could not be"
+                + " fetched: HTTP " + resp.statusCode() + ".");
         return List.of();
       }
       JsonNode root = objectMapper.readTree(resp.body());
@@ -161,6 +187,9 @@ public class AzureDevOpsService {
       return result;
     } catch (Exception e) {
       log.error("Azure DevOps batch fetch failed", e);
+      warnings.add(
+          "Azure DevOps returned " + ids.size() + " work item(s) but their details could not be"
+              + " fetched: " + e.getClass().getSimpleName() + " — " + e.getMessage() + ".");
       return List.of();
     }
   }

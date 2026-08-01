@@ -51,7 +51,7 @@ Two workflow types exist (switch in `DailyReportFacade`):
 
 `DailyReportController` → `DailyReportFacade`, which resolves the profile and (for `calendar-devops`) fans out to four services and composes a proposal:
 1. `GoogleCalendarService` — meetings of the day (rounded up to 15-min steps)
-2. `AzureDevOpsService` — WIQL queries for "changed by me today" and "open work items assigned to me"
+2. `AzureDevOpsService` — WIQL queries for "changed by me today" and "open work items assigned to me". Returns a `WorkItemResult` of items **plus warnings**: a failed query must not abort the preview, but the empty list it leaves behind makes the proposal fill the whole day onto the main PBI, so an expired PAT would otherwise pass for a plausible report. The warning text stays a sentence — the response body of a failed call is a sign-in page and belongs in the log. `GoogleCalendarService` deliberately does **not** follow this pattern: it throws, so a broken calendar fails loudly instead of faking an empty day.
 3. `MiteBookingService` — already-booked entries for the day (to avoid duplicates)
 4. `BookingProposalService` — pure logic that combines all of the above with the user-supplied `mainPbiId` / `targetHours`
 
@@ -110,6 +110,6 @@ Two things to know when writing controller tests: `@WebMvcTest` does **not** pic
 ## Conventions worth knowing
 
 - Package root: `org.twittig.mite.mitesync`. Layering is `web.controller` → `facade` → `service` (+ `converter`, `web.model`, `web.annotation`).
-- Tests mirror the main package structure under `src/test/java`. `GoogleCalendarService` and `AzureDevOpsService` are intentionally untested (excluded from JaCoCo) because they hit live APIs — keep new external-I/O code likewise excluded only when you can't reasonably mock it, and prefer to put the testable logic into a sibling pure-logic class (the way `BookingProposalService` is split out of `DailyReportFacade`).
+- Tests mirror the main package structure under `src/test/java`. `GoogleCalendarService` and `AzureDevOpsService` are excluded from the JaCoCo gate because they hit live APIs, but they are **not untested**: both have test classes that inject a mocked transport (`ReflectionTestUtils.setField(service, "httpClient", …)`). The exclusion only means their coverage does not count — keep new external-I/O code likewise excluded when you can't reasonably mock it, and prefer to put the testable logic into a sibling pure-logic class (the way `BookingProposalService` is split out of `DailyReportFacade`).
 - Javadoc and inline comments in this repo are in **English**. Match the existing style when editing.
 - Trunk-based workflow: `main` is the only long-lived branch; work happens on short-lived feature branches merged via PR. CI (`.github/workflows/ci.yml`) runs `./mvnw -B verify` on every PR and push to `main` — the `verify` check is required by branch protection, so a red build blocks the merge. On push to `main`, CI additionally builds the Docker image and pushes `latest` + `sha-<short>` tags to Docker Hub (needs `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` repo secrets). Releases are plain git tags (`v*`): the tag adds a versioned image tag and creates a GitHub Release with generated notes. The `pom.xml` version stays at `0.0.1-SNAPSHOT` (the Dockerfile hardcodes that jar name) — the git tag is the source of truth for versions.

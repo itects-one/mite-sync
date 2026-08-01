@@ -30,6 +30,7 @@ import org.twittig.mite.mitesync.service.GitCommit;
 import org.twittig.mite.mitesync.service.GitEstimate;
 import org.twittig.mite.mitesync.service.GoogleCalendarService;
 import org.twittig.mite.mitesync.service.MiteBookingService;
+import org.twittig.mite.mitesync.service.WorkItemResult;
 import org.twittig.mite.mitesync.web.model.BookingResultModel;
 import org.twittig.mite.mitesync.web.model.CalendarEventModel;
 import org.twittig.mite.mitesync.web.model.DailyReportModel;
@@ -82,8 +83,10 @@ class DailyReportFacadeTest {
 
     when(googleCalendarService.getEventsForDay(date, 15)).thenReturn(List.of(event));
     when(miteBookingService.getEntriesForDate(profile, date)).thenReturn(List.of(booked));
-    when(azureDevOpsService.getWorkItemsChangedByMeOnDate(date)).thenReturn(List.of(changed));
-    when(azureDevOpsService.getOpenWorkItemsAssignedToMe()).thenReturn(List.of(open));
+    when(azureDevOpsService.getWorkItemsChangedByMeOnDate(date))
+        .thenReturn(WorkItemResult.of(List.of(changed)));
+    when(azureDevOpsService.getOpenWorkItemsAssignedToMe())
+        .thenReturn(WorkItemResult.of(List.of(open)));
     when(bookingProposalService.buildProposal(eq(profile), any(), any(), any(), eq(pbi)))
         .thenReturn(List.of(proposal));
 
@@ -97,6 +100,31 @@ class DailyReportFacadeTest {
     assertThat(result.getOpenWorkItems()).containsExactly(open);
     assertThat(result.getProposal()).containsExactly(proposal);
     assertThat(result.getProposalTotalMinutes()).isEqualTo(375);
+    assertThat(result.getWarnings()).isEmpty();
+  }
+
+  @Test
+  void preview_calendarDevops_reportsFailuresOfBothDevOpsQueries() {
+    givenDefaultProfile();
+    LocalDate date = LocalDate.of(2024, 3, 15);
+    PbiAssignmentModel pbi = new PbiAssignmentModel();
+    pbi.setMainPbiId(12345);
+
+    when(googleCalendarService.getEventsForDay(any(), anyInt())).thenReturn(List.of());
+    when(miteBookingService.getEntriesForDate(eq(profile), any())).thenReturn(List.of());
+    when(azureDevOpsService.getWorkItemsChangedByMeOnDate(any()))
+        .thenReturn(new WorkItemResult(List.of(), List.of("changed-today query failed")));
+    when(azureDevOpsService.getOpenWorkItemsAssignedToMe())
+        .thenReturn(new WorkItemResult(List.of(), List.of("open-items query failed")));
+    when(bookingProposalService.buildProposal(any(), any(), any(), any(), any()))
+        .thenReturn(List.of());
+
+    DailyReportModel result = facade.preview(date, pbi);
+
+    // Both queries can fail independently, and the empty report they leave behind would otherwise
+    // look like a day without DevOps activity.
+    assertThat(result.getWarnings())
+        .containsExactly("changed-today query failed", "open-items query failed");
   }
 
   @Test
@@ -109,8 +137,10 @@ class DailyReportFacadeTest {
 
     when(googleCalendarService.getEventsForDay(date, 30)).thenReturn(List.of());
     when(miteBookingService.getEntriesForDate(profile, date)).thenReturn(List.of());
-    when(azureDevOpsService.getWorkItemsChangedByMeOnDate(date)).thenReturn(List.of());
-    when(azureDevOpsService.getOpenWorkItemsAssignedToMe()).thenReturn(List.of());
+    when(azureDevOpsService.getWorkItemsChangedByMeOnDate(date))
+        .thenReturn(WorkItemResult.of(List.of()));
+    when(azureDevOpsService.getOpenWorkItemsAssignedToMe())
+        .thenReturn(WorkItemResult.of(List.of()));
     when(bookingProposalService.buildProposal(any(), any(), any(), any(), any())).thenReturn(List.of());
 
     facade.preview(date, pbi);
@@ -127,8 +157,10 @@ class DailyReportFacadeTest {
 
     when(googleCalendarService.getEventsForDay(any(), anyInt())).thenReturn(List.of());
     when(miteBookingService.getEntriesForDate(eq(profile), any())).thenReturn(List.of());
-    when(azureDevOpsService.getWorkItemsChangedByMeOnDate(any())).thenReturn(List.of());
-    when(azureDevOpsService.getOpenWorkItemsAssignedToMe()).thenReturn(List.of());
+    when(azureDevOpsService.getWorkItemsChangedByMeOnDate(any()))
+        .thenReturn(WorkItemResult.of(List.of()));
+    when(azureDevOpsService.getOpenWorkItemsAssignedToMe())
+        .thenReturn(WorkItemResult.of(List.of()));
     when(bookingProposalService.buildProposal(any(), any(), any(), any(), any())).thenReturn(List.of());
 
     DailyReportModel result = facade.preview(date, pbi);
@@ -145,8 +177,10 @@ class DailyReportFacadeTest {
 
     when(googleCalendarService.getEventsForDay(any(), anyInt())).thenReturn(List.of());
     when(miteBookingService.getEntriesForDate(eq(profile), any())).thenReturn(List.of());
-    when(azureDevOpsService.getWorkItemsChangedByMeOnDate(any())).thenReturn(List.of());
-    when(azureDevOpsService.getOpenWorkItemsAssignedToMe()).thenReturn(List.of());
+    when(azureDevOpsService.getWorkItemsChangedByMeOnDate(any()))
+        .thenReturn(WorkItemResult.of(List.of()));
+    when(azureDevOpsService.getOpenWorkItemsAssignedToMe())
+        .thenReturn(WorkItemResult.of(List.of()));
     when(bookingProposalService.buildProposal(any(), any(), any(), any(), any())).thenReturn(List.of());
 
     facade.preview("alpha", date, pbi);
