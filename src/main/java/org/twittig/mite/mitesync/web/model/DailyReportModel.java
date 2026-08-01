@@ -33,6 +33,21 @@ public class DailyReportModel {
   /** Total minutes across the proposed entries. */
   private int proposalTotalMinutes;
 
+  /**
+   * What the app could not read while assembling this report — a configured repository that has
+   * moved, for instance. Empty rather than null: without these, a misconfiguration is
+   * indistinguishable from a day without activity.
+   */
+  private List<String> warnings = List.of();
+
+  public List<String> getWarnings() {
+    return warnings;
+  }
+
+  public void setWarnings(List<String> warnings) {
+    this.warnings = warnings == null ? List.of() : warnings;
+  }
+
   public LocalDate getDate() {
     return date;
   }

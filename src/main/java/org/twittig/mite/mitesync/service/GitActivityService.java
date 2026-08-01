@@ -23,8 +23,9 @@ import org.twittig.mite.mitesync.config.DailyReportProperties.GitActivity;
  * branches are considered (work usually happens on feature branches); commits reachable from
  * several refs are visited only once per repository.
  *
- * <p>Per-repository errors (missing path, corrupt repo) are logged and skipped so one broken
- * configuration entry does not take down the whole preview. The duration estimation lives in
+ * <p>Per-repository errors (missing path, corrupt repo) are skipped so one broken configuration
+ * entry does not take down the whole preview — but they are reported back in
+ * {@link GitActivityResult#warnings()} rather than only logged. The duration estimation lives in
  * {@link GitActivityEstimator} — this class is intentionally a thin I/O layer.
  */
 @Service
@@ -32,13 +33,17 @@ public class GitActivityService {
 
   private static final Logger log = LogManager.getLogger(GitActivityService.class);
 
-  /** Returns the day's commits from all configured repositories, sorted chronologically. */
-  public List<GitCommit> getCommitsForDay(GitActivity config, LocalDate date) {
+  /**
+   * Returns the day's commits from all configured repositories, sorted chronologically, together
+   * with a warning for every repository that could not be read.
+   */
+  public GitActivityResult getCommitsForDay(GitActivity config, LocalDate date) {
     ZoneId zone = ZoneId.systemDefault();
     Instant dayStart = date.atStartOfDay(zone).toInstant();
     Instant dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant();
 
     List<GitCommit> result = new ArrayList<>();
+    List<String> warnings = new ArrayList<>();
     for (String repoPath : config.getRepositories()) {
       try (Repository repository =
               new FileRepositoryBuilder()
@@ -68,10 +73,13 @@ public class GitActivityService {
         }
       } catch (Exception e) {
         log.warn("Skipping git repository '{}': {}", repoPath, e.getMessage());
+        // Also handed back to the caller: a log line alone leaves a misconfigured path looking
+        // like a day without commits.
+        warnings.add("Repository '" + repoPath + "' could not be read: " + e.getMessage());
       }
     }
     result.sort(Comparator.comparing(GitCommit::time));
-    return result;
+    return new GitActivityResult(result, warnings);
   }
 
   private boolean matchesAuthor(RevCommit commit, String authorFilter) {

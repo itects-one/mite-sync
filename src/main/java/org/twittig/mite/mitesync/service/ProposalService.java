@@ -59,7 +59,11 @@ public class ProposalService {
     proposal.replaceEntries(mapper.toEntryEntities(report.getProposal()));
     proposal.setUpdatedAt(Instant.now());
 
-    return mapper.toModel(repository.save(proposal));
+    ProposalModel model = mapper.toModel(repository.save(proposal));
+    // Carried from the run that just happened, not from the store — otherwise a stale repository
+    // path stays invisible in exactly the place the UI works from.
+    model.setWarnings(report.getWarnings());
+    return model;
   }
 
   public List<ProposalModel> list() {

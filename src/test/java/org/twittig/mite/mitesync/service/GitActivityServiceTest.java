@@ -97,7 +97,7 @@ class GitActivityServiceTest {
       commit(git, "VC-1: First", "Dev", "dev@example.org", at(DAY, 9, 0));
     }
 
-    List<GitCommit> result = service.getCommitsForDay(config, DAY);
+    List<GitCommit> result = service.getCommitsForDay(config, DAY).commits();
 
     assertThat(result).hasSize(2);
     assertThat(result.get(0).subjectLine()).isEqualTo("VC-1: First");
@@ -113,7 +113,7 @@ class GitActivityServiceTest {
       commit(git, "VC-3: Tomorrow", "Dev", "dev@example.org", at(DAY.plusDays(1), 0, 5));
     }
 
-    List<GitCommit> result = service.getCommitsForDay(config, DAY);
+    List<GitCommit> result = service.getCommitsForDay(config, DAY).commits();
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).subjectLine()).isEqualTo("VC-2: Today");
@@ -129,7 +129,7 @@ class GitActivityServiceTest {
       commit(git, "VC-4: Not mine", "Colleague", "colleague@example.org", at(DAY, 12, 0));
     }
 
-    List<GitCommit> result = service.getCommitsForDay(config, DAY);
+    List<GitCommit> result = service.getCommitsForDay(config, DAY).commits();
 
     assertThat(result)
         .extracting(GitCommit::subjectLine)
@@ -145,7 +145,7 @@ class GitActivityServiceTest {
       commit(git, "VC-2: In repo B", "Dev", "dev@example.org", at(DAY, 9, 0));
     }
 
-    List<GitCommit> result = service.getCommitsForDay(config, DAY);
+    List<GitCommit> result = service.getCommitsForDay(config, DAY).commits();
 
     assertThat(result)
         .extracting(GitCommit::subjectLine)
@@ -160,7 +160,7 @@ class GitActivityServiceTest {
       commit(git, "VC-2: On branch", "Dev", "dev@example.org", at(DAY, 10, 0));
     }
 
-    List<GitCommit> result = service.getCommitsForDay(config, DAY);
+    List<GitCommit> result = service.getCommitsForDay(config, DAY).commits();
 
     assertThat(result)
         .extracting(GitCommit::subjectLine)
@@ -184,7 +184,7 @@ class GitActivityServiceTest {
           mainTip);
     }
 
-    List<GitCommit> result = service.getCommitsForDay(config, DAY);
+    List<GitCommit> result = service.getCommitsForDay(config, DAY).commits();
 
     assertThat(result)
         .extracting(GitCommit::subjectLine)
@@ -209,23 +209,55 @@ class GitActivityServiceTest {
           mainTip);
     }
 
-    assertThat(service.getCommitsForDay(config, DAY)).isEmpty();
+    assertThat(service.getCommitsForDay(config, DAY).commits()).isEmpty();
   }
 
   @Test
-  void brokenRepositoryPath_isSkippedWithoutError() throws Exception {
-    config.getRepositories().add(tempDir.resolve("does-not-exist").toString());
+  void brokenRepositoryPath_isSkippedButReported() throws Exception {
+    String missing = tempDir.resolve("does-not-exist").toString();
+    config.getRepositories().add(missing);
     try (Git git = initRepo("repo")) {
       commit(git, "VC-1: Works", "Dev", "dev@example.org", at(DAY, 9, 0));
     }
 
-    List<GitCommit> result = service.getCommitsForDay(config, DAY);
+    GitActivityResult result = service.getCommitsForDay(config, DAY);
 
-    assertThat(result).hasSize(1);
+    // The readable repository is still read — one broken path must not take down the preview.
+    assertThat(result.commits()).hasSize(1);
+    // But it no longer disappears silently: an empty day and a moved path used to look alike.
+    assertThat(result.warnings()).hasSize(1);
+    assertThat(result.warnings().get(0)).contains(missing);
   }
 
   @Test
-  void noRepositoriesConfigured_returnsEmptyList() {
-    assertThat(service.getCommitsForDay(config, DAY)).isEmpty();
+  void readableRepositories_produceNoWarnings() throws Exception {
+    try (Git git = initRepo("repo")) {
+      commit(git, "VC-1: Works", "Dev", "dev@example.org", at(DAY, 9, 0));
+    }
+
+    assertThat(service.getCommitsForDay(config, DAY).warnings()).isEmpty();
+  }
+
+  @Test
+  void everyRepositoryBroken_warnsForEachAndReturnsNoCommits() {
+    String first = tempDir.resolve("gone-a").toString();
+    String second = tempDir.resolve("gone-b").toString();
+    config.getRepositories().add(first);
+    config.getRepositories().add(second);
+
+    GitActivityResult result = service.getCommitsForDay(config, DAY);
+
+    assertThat(result.commits()).isEmpty();
+    assertThat(result.warnings()).hasSize(2);
+    assertThat(result.warnings()).anyMatch(w -> w.contains(first));
+    assertThat(result.warnings()).anyMatch(w -> w.contains(second));
+  }
+
+  @Test
+  void noRepositoriesConfigured_returnsEmptyResult() {
+    GitActivityResult result = service.getCommitsForDay(config, DAY);
+
+    assertThat(result.commits()).isEmpty();
+    assertThat(result.warnings()).isEmpty();
   }
 }

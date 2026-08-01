@@ -53,6 +53,11 @@ heuristic:
 4. Per-ticket totals are rounded **up** to the profile's rounding step; the proposal note is
    `#<ticket> <subject of the ticket's latest commit>`.
 
+A repository that cannot be read (a path that has moved, a corrupt checkout) is skipped so one
+broken entry does not take down the whole preview — but the skip is reported in the `warnings`
+field of the response, and the web UI shows it after generating. Without that, a misconfigured
+path is indistinguishable from a day without commits: both answer `200` with an empty proposal.
+
 The result is an estimate to be reviewed in the preview — not a time-tracking measurement.
 The preview response lists the day's commits (`gitCommits`) as the evidence behind the
 estimate, and the duplicate guard drops entries whose note is already booked in Mite, so
