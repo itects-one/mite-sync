@@ -1,7 +1,9 @@
 package org.twittig.mite.mitesync.web.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -208,6 +210,20 @@ class DailyReportControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.entries").exists());
+    }
+
+    @Test
+    void book_returns_400_when_minutes_are_out_of_range() throws Exception {
+        // Same constraint, second entry point — the annotation sits on the shared entry model.
+        for (String minutes : new String[] {"0", "-5", "40000"}) {
+            mockMvc.perform(post("/daily-reports/2025-04-28/book")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"entries": [{"minutes": %s, "note": "#1 Work"}]}
+                                    """.formatted(minutes)))
+                    .andExpect(status().isBadRequest());
+        }
+        verify(facade, never()).book(any(), any(), anyList());
     }
 
     @Test

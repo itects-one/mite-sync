@@ -102,7 +102,7 @@ Two things to know when writing controller tests: `@WebMvcTest` does **not** pic
 
 ### Validation & error handling
 
-- Request DTOs use Jakarta validation (`@Valid` on controllers).
+- Request DTOs use Jakarta validation (`@Valid` on controllers). `ProposalEntryModel.minutes` is bounded to 1..1440 — the upper bound is not cosmetic: `MiteBookingService.buildTimeEntry` casts to `short` for the Mite write API, so anything above 32767 would wrap into a negative duration. The annotation sits on the shared entry model, so both `/daily-reports/{project}/{date}/book` and `PUT /proposals/{id}/entries` are covered through `BookingRequestModel`'s `List<@Valid ProposalEntryModel>`.
 - `GlobalExceptionHandler` turns `MethodArgumentNotValidException` into a flat `{field: message}` JSON body.
 - Custom date-range validation: `@ValidDateRange` annotation + `DateRangeValidator` (used on `SyncJobModel`).
 - `MiteBookingService.book` is **best-effort**: per-entry failures are collected in `BookingResultModel.failed` and don't abort the run.
