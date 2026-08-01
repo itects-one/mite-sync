@@ -281,6 +281,31 @@ class ProposalServiceTest {
     verify(facade, never()).book(any(), any(), anyList());
   }
 
+  @Test
+  void confirm_rejectsEmptyProposal_andDoesNotBook() {
+    // A day without activity generates a valid but empty DRAFT. Confirming it used to derive
+    // BOOKED from the empty booking result and froze the proposal on a success that never was.
+    Proposal p = draftWithId(13L);
+    when(repository.findById(13L)).thenReturn(Optional.of(p));
+
+    assertThatThrownBy(() -> service.confirm(13L)).isInstanceOf(EmptyProposalException.class);
+
+    verify(facade, never()).book(any(), any(), anyList());
+    verify(repository, never()).save(any(Proposal.class));
+  }
+
+  @Test
+  void confirm_leavesTheEmptyProposalEditable() {
+    Proposal p = draftWithId(14L);
+    when(repository.findById(14L)).thenReturn(Optional.of(p));
+
+    assertThatThrownBy(() -> service.confirm(14L)).isInstanceOf(EmptyProposalException.class);
+
+    // Still a DRAFT, so it can be regenerated, edited or deleted — not frozen by a failed confirm.
+    assertThat(p.getStatus()).isEqualTo(ProposalStatus.DRAFT);
+    assertThat(p.getBookedAt()).isNull();
+  }
+
   // -------- delete --------
 
   @Test
