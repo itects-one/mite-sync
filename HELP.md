@@ -35,6 +35,20 @@ expects a `mainPbiId`:
 Mite ids, instance keys and repository paths stay out of that response — they are configuration,
 not API surface.
 
+### Calendar + DevOps
+
+A failing Azure DevOps query does not abort the preview — the rest of the report is still worth
+having. It does show up in the `warnings` field of the response (and in the web UI after
+generating), because the empty work-item list it leaves behind is what makes the proposal fill the
+whole day onto the main PBI. An expired PAT would otherwise be indistinguishable from a day
+without DevOps activity. The warning names which of the two queries failed and the HTTP status;
+the response body stays in the server log, where an HTML sign-in page does no harm.
+
+Google Calendar behaves differently on purpose: a failed calendar read **fails** the preview
+instead of returning no meetings. There is no quiet wrong answer to protect against — an empty
+calendar and a broken one would produce very different bookings, so the request is refused rather
+than answered with a plausible-looking day.
+
 ### Git activity estimation
 
 For `git-activity` profiles the proposal is derived from the commit history of locally

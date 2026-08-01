@@ -18,6 +18,7 @@ import org.twittig.mite.mitesync.service.GitCommit;
 import org.twittig.mite.mitesync.service.GitEstimate;
 import org.twittig.mite.mitesync.service.GoogleCalendarService;
 import org.twittig.mite.mitesync.service.MiteBookingService;
+import org.twittig.mite.mitesync.service.WorkItemResult;
 import org.twittig.mite.mitesync.web.model.BookingResultModel;
 import org.twittig.mite.mitesync.web.model.CalendarEventModel;
 import org.twittig.mite.mitesync.web.model.DailyReportModel;
@@ -92,17 +93,24 @@ public class DailyReportFacade {
     List<CalendarEventModel> events =
         googleCalendarService.getEventsForDay(date, profile.getRules().getRoundingStepMinutes());
     List<MiteEntryModel> alreadyBooked = miteBookingService.getEntriesForDate(profile, date);
-    List<WorkItemModel> changedToday = azureDevOpsService.getWorkItemsChangedByMeOnDate(date);
-    List<WorkItemModel> openItems = azureDevOpsService.getOpenWorkItemsAssignedToMe();
+    WorkItemResult changedToday = azureDevOpsService.getWorkItemsChangedByMeOnDate(date);
+    WorkItemResult openItems = azureDevOpsService.getOpenWorkItemsAssignedToMe();
 
     List<ProposalEntryModel> proposal =
-        bookingProposalService.buildProposal(profile, events, alreadyBooked, openItems, pbiAssignment);
+        bookingProposalService.buildProposal(
+            profile, events, alreadyBooked, openItems.items(), pbiAssignment);
+
+    // A failed query leaves an empty list behind, and an empty list makes the proposal fill the
+    // whole day onto the main PBI — which is why the failure has to travel with the report.
+    List<String> warnings = new ArrayList<>(changedToday.warnings());
+    warnings.addAll(openItems.warnings());
 
     DailyReportModel m = newReport(date);
     m.setCalendarEvents(events);
     m.setAlreadyBookedInMite(alreadyBooked);
-    m.setDevOpsActivityOnDate(changedToday);
-    m.setOpenWorkItems(openItems);
+    m.setDevOpsActivityOnDate(changedToday.items());
+    m.setOpenWorkItems(openItems.items());
+    m.setWarnings(warnings);
     setProposal(m, proposal);
     return m;
   }

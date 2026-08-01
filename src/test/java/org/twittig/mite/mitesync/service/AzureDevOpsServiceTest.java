@@ -67,10 +67,10 @@ class AzureDevOpsServiceTest {
         .thenReturn(wiqlResp)
         .thenReturn(batchResp);
 
-    List<WorkItemModel> result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
+    WorkItemResult result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
 
-    assertThat(result).hasSize(1);
-    WorkItemModel item = result.get(0);
+    assertThat(result.items()).hasSize(1);
+    WorkItemModel item = result.items().get(0);
     assertThat(item.getId()).isEqualTo(123);
     assertThat(item.getType()).isEqualTo("Task");
     assertThat(item.getTitle()).isEqualTo("My Feature");
@@ -86,29 +86,67 @@ class AzureDevOpsServiceTest {
     var wiqlResp = mockResponse(200, wiqlJson);
     when(httpClientMock.send(any(HttpRequest.class), any())).thenReturn(wiqlResp);
 
-    List<WorkItemModel> result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
+    WorkItemResult result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
 
-    assertThat(result).isEmpty();
+    assertThat(result.items()).isEmpty();
+    // A genuinely empty day is not something to warn about.
+    assertThat(result.warnings()).isEmpty();
   }
 
   @Test
-  void getWorkItemsChangedByMeOnDate_httpError_returnsEmpty() throws Exception {
-    var errorResp = mockResponse(401, "Unauthorized");
+  void getWorkItemsChangedByMeOnDate_httpError_returnsEmptyAndSaysWhy() throws Exception {
+    // An expired PAT is the case this exists for: it looks exactly like a day without activity.
+    var errorResp = mockResponse(401, "<html>Sign in to your account</html>");
     when(httpClientMock.send(any(HttpRequest.class), any())).thenReturn(errorResp);
 
-    List<WorkItemModel> result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
+    WorkItemResult result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
 
-    assertThat(result).isEmpty();
+    assertThat(result.items()).isEmpty();
+    assertThat(result.warnings()).hasSize(1);
+    assertThat(result.warnings().get(0))
+        .contains("work items changed today")
+        .contains("HTTP 401");
   }
 
   @Test
-  void getWorkItemsChangedByMeOnDate_networkException_returnsEmpty() throws Exception {
+  void httpErrorWarning_doesNotCarryTheResponseBody() throws Exception {
+    // The body of a failed call is usually a sign-in page — it belongs in the log, not a banner.
+    var errorResp = mockResponse(401, "<html>Sign in to your account</html>");
+    when(httpClientMock.send(any(HttpRequest.class), any())).thenReturn(errorResp);
+
+    WorkItemResult result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
+
+    assertThat(result.warnings().get(0)).doesNotContain("<html>");
+  }
+
+  @Test
+  void getWorkItemsChangedByMeOnDate_networkException_returnsEmptyAndSaysWhy() throws Exception {
     when(httpClientMock.send(any(HttpRequest.class), any()))
         .thenThrow(new RuntimeException("Connection refused"));
 
-    List<WorkItemModel> result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
+    WorkItemResult result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
 
-    assertThat(result).isEmpty();
+    assertThat(result.items()).isEmpty();
+    assertThat(result.warnings()).hasSize(1);
+    assertThat(result.warnings().get(0))
+        .contains("work items changed today")
+        .contains("Connection refused");
+  }
+
+  @Test
+  void batchFetchFailureAfterASuccessfulQuery_isReported() throws Exception {
+    // The quietest failure of all: the ids were found, only their contents never arrive.
+    var wiqlResp = mockResponse(200, "{\"workItems\":[{\"id\":123},{\"id\":124}]}");
+    var batchResp = mockResponse(500, "Internal Server Error");
+    when(httpClientMock.send(any(HttpRequest.class), any()))
+        .thenReturn(wiqlResp)
+        .thenReturn(batchResp);
+
+    WorkItemResult result = service.getWorkItemsChangedByMeOnDate(LocalDate.of(2024, 3, 15));
+
+    assertThat(result.items()).isEmpty();
+    assertThat(result.warnings()).hasSize(1);
+    assertThat(result.warnings().get(0)).contains("2 work item(s)").contains("HTTP 500");
   }
 
   // --- getOpenWorkItemsAssignedToMe ---
@@ -125,22 +163,27 @@ class AzureDevOpsServiceTest {
         .thenReturn(wiqlResp)
         .thenReturn(batchResp);
 
-    List<WorkItemModel> result = service.getOpenWorkItemsAssignedToMe();
+    WorkItemResult result = service.getOpenWorkItemsAssignedToMe();
 
-    assertThat(result).hasSize(1);
-    assertThat(result.get(0).isAssignedToMe()).isTrue();
-    assertThat(result.get(0).isChangedByMe()).isFalse();
-    assertThat(result.get(0).getId()).isEqualTo(456);
+    assertThat(result.items()).hasSize(1);
+    assertThat(result.warnings()).isEmpty();
+    assertThat(result.items().get(0).isAssignedToMe()).isTrue();
+    assertThat(result.items().get(0).isChangedByMe()).isFalse();
+    assertThat(result.items().get(0).getId()).isEqualTo(456);
   }
 
   @Test
-  void getOpenWorkItemsAssignedToMe_httpError_returnsEmpty() throws Exception {
+  void getOpenWorkItemsAssignedToMe_httpError_returnsEmptyAndSaysWhy() throws Exception {
     var errorResp = mockResponse(403, "Forbidden");
     when(httpClientMock.send(any(HttpRequest.class), any())).thenReturn(errorResp);
 
-    List<WorkItemModel> result = service.getOpenWorkItemsAssignedToMe();
+    WorkItemResult result = service.getOpenWorkItemsAssignedToMe();
 
-    assertThat(result).isEmpty();
+    assertThat(result.items()).isEmpty();
+    // The label separates the two queries — otherwise both failures read the same.
+    assertThat(result.warnings().get(0))
+        .contains("open work items assigned to me")
+        .contains("HTTP 403");
   }
 
   // --- getWorkItemById ---
