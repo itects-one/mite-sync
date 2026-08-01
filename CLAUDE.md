@@ -27,6 +27,14 @@ Spring Boot 4 changed three things this repo depends on. Keep them in mind when 
 
 The app exposes two independent workflows over the Mite time-tracking API, both as REST endpoints (no UI). On top of them sits a **persistent proposal store** (`/proposals`, package `persistence` + `service.ProposalService` + `web.controller.ProposalController`): an embedded H2 file database (`~/.mite-sync/db/`, `spring.datasource` in `application.yml`; in Docker overridden to `/data/db` via `SPRING_DATASOURCE_URL`) that lets a generated proposal be reviewed/edited/confirmed as an inbox item. It reuses the existing `DailyReportFacade` (`preview` to generate a DRAFT, `book` to confirm) and only adds the state machine (`DRAFT → BOOKED | PARTIALLY_BOOKED | FAILED`; edit/confirm require DRAFT → 409) plus entry provenance: an entry's `source` (values in `web.model.EntrySource`) is **derived server-side** on edit — unchanged entries inherit the stored value, changed or added ones become `manual`, and a client-supplied `source` is ignored so provenance cannot be spoofed. This is stage 1 of a larger vision (web UI + scheduler + in-app AI agent). See `HELP.md` and `mite-sync.http` for example payloads.
 
+### `ProposalGuard` — not wired up yet
+
+`service.ProposalGuard` + `DayEvidence` + `GuardResult` are the deterministic half of issue #16 (agent-composed proposals), landed ahead of the agent itself and **currently without a caller**. Do not delete them as dead code; the agent PR wires them in.
+
+The guard exists because the rule-based composers *cannot* invent a ticket — every note they build comes from a commit subject or a work item that was just read — while a model can, and an entry booking billed time onto untouched work survives review precisely because it reads like the others. So it checks that every `#<ticket>` in a proposed note occurs in the day's evidence or in the profile's configured ids (main PBI, meeting collector, fill-up ticket), plus entry sanity, the duplicate guard against already-booked notes, and the day's total against the target.
+
+Design decisions worth keeping: it reports **all** violations rather than the first; it never repairs anything (the caller decides — intended handling is to fall back to the rule-based proposal and surface the violations through the existing `warnings` channel, never a silent DRAFT); overshooting the target is a violation but **undershooting is not**, because `git-activity` books only what the history shows; and the total check switches off with a negative tolerance, since long days are legitimate on some profiles. A note without a `#` prefix is not checked for a ticket at all — that case belongs to #21, not here.
+
 ### Two Mite instances, two directions
 
 There are **two** `MiteClient` beans (`MiteSyncConfig`):
