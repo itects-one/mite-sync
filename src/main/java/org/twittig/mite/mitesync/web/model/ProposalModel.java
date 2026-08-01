@@ -10,6 +10,21 @@ import java.util.List;
  */
 public class ProposalModel {
 
+  /**
+   * What could not be read while this proposal was being generated. Filled only by the generate
+   * response — it describes that run, not the stored proposal, and is therefore not persisted: a
+   * warning kept alongside the proposal would still be shown long after the cause was fixed.
+   */
+  private List<String> warnings = List.of();
+
+  public List<String> getWarnings() {
+    return warnings;
+  }
+
+  public void setWarnings(List<String> warnings) {
+    this.warnings = warnings == null ? List.of() : warnings;
+  }
+
   private Long id;
   private String profileKey;
   private LocalDate date;

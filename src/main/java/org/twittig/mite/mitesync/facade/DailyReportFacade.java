@@ -11,6 +11,7 @@ import org.twittig.mite.mitesync.config.ProfileRegistry;
 import org.twittig.mite.mitesync.service.AzureDevOpsService;
 import org.twittig.mite.mitesync.service.BookingProposalService;
 import org.twittig.mite.mitesync.service.GitActivityEstimator;
+import org.twittig.mite.mitesync.service.GitActivityResult;
 import org.twittig.mite.mitesync.service.GitActivityService;
 import org.twittig.mite.mitesync.service.GitCommit;
 import org.twittig.mite.mitesync.service.GoogleCalendarService;
@@ -106,7 +107,8 @@ public class DailyReportFacade {
 
   private DailyReportModel previewGitActivity(
       Profile profile, LocalDate date, PbiAssignmentModel pbiAssignment) {
-    List<GitCommit> commits = gitActivityService.getCommitsForDay(profile.getGit(), date);
+    GitActivityResult activity = gitActivityService.getCommitsForDay(profile.getGit(), date);
+    List<GitCommit> commits = activity.commits();
     List<MiteEntryModel> alreadyBooked = miteBookingService.getEntriesForDate(profile, date);
 
     List<ProposalEntryModel> estimated =
@@ -122,6 +124,7 @@ public class DailyReportFacade {
     m.setOpenWorkItems(List.of());
     m.setAlreadyBookedInMite(alreadyBooked);
     m.setGitCommits(commits.stream().map(DailyReportFacade::toModel).toList());
+    m.setWarnings(activity.warnings());
     setProposal(m, proposal);
     return m;
   }

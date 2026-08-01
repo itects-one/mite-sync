@@ -93,6 +93,32 @@ describe('App', () => {
     expect(await screen.findByText(/No proposals yet/)).toBeDefined()
   })
 
+  it('shows generation warnings and keeps them across the jump to the detail view', async () => {
+    api.generateProposal.mockResolvedValue({
+      id: 7,
+      warnings: ["Repository '/gone' could not be read: no such file"],
+    })
+    render(<App />)
+
+    await screen.findByRole('option', { name: /side/ })
+    await userEvent.selectOptions(screen.getByLabelText(/Profile/), 'side')
+    await userEvent.click(screen.getByRole('button', { name: 'Generate' }))
+
+    // Generating navigates away — the warning has to survive that, or it is never seen.
+    expect(await screen.findByText(/Repository '\/gone' could not be read/)).toBeDefined()
+    expect(await screen.findByText(/Could not load proposal|No entries\./)).toBeDefined()
+  })
+
+  it('shows no warning banner for a clean generation', async () => {
+    api.generateProposal.mockResolvedValue({ id: 7, warnings: [] })
+    render(<App />)
+
+    await screen.findByRole('option', { name: /side/ })
+    await userEvent.click(screen.getByRole('button', { name: 'Generate' }))
+
+    expect(screen.queryByText(/Generated with warnings/)).toBeNull()
+  })
+
   it('surfaces an API error in a banner', async () => {
     api.listProfiles.mockRejectedValue(new Error('Not authenticated'))
 

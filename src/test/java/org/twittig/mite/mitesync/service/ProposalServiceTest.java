@@ -87,6 +87,29 @@ class ProposalServiceTest {
     assertThat(m.getTotalMinutes()).isEqualTo(300);
   }
 
+  @Test
+  void generate_carriesTheRunsWarnings() {
+    DailyReportModel report =
+        reportWith(new ProposalEntryModel(120, "#1 x", EntrySource.MAIN_PBI_FILL, 1, "x"));
+    report.setWarnings(List.of("Repository '/gone' could not be read: no such file"));
+    when(facade.preview(eq("default"), eq(DATE), any())).thenReturn(report);
+    when(repository.findByProfileKeyAndReportDateAndStatus("default", DATE, ProposalStatus.DRAFT))
+        .thenReturn(Optional.empty());
+
+    ProposalModel m = service.generate("default", DATE, assignment(1, null));
+
+    // Without this a moved repository path stays invisible on the path the UI actually uses.
+    assertThat(m.getWarnings()).containsExactly("Repository '/gone' could not be read: no such file");
+  }
+
+  @Test
+  void get_hasNoWarnings_becauseTheyDescribeTheRunNotTheProposal() {
+    Proposal p = draftWithId(2L);
+    when(repository.findById(2L)).thenReturn(Optional.of(p));
+
+    assertThat(service.get(2L).getWarnings()).isEmpty();
+  }
+
   // -------- get / list --------
 
   @Test

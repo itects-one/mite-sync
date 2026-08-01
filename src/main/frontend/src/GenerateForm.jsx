@@ -7,7 +7,7 @@ import { navigate } from './useHashRoute.js'
  * Generates (or regenerates) the DRAFT for a profile and date. Regenerating overwrites an existing
  * DRAFT for the same day in place, so repeating this is safe and never produces duplicates.
  */
-export default function GenerateForm({ profiles, onError, onGenerated }) {
+export default function GenerateForm({ profiles, onError, onWarnings, onGenerated }) {
   const [profileKey, setProfileKey] = useState('')
   const [date, setDate] = useState(todayIso)
   const [mainPbiId, setMainPbiId] = useState('')
@@ -37,6 +37,8 @@ export default function GenerateForm({ profiles, onError, onGenerated }) {
       if (targetHours !== '') assignment.targetHours = Number(targetHours)
 
       const proposal = await generateProposal(profileKey, date, assignment)
+      // An empty proposal and a repository that could not be read look identical otherwise.
+      onWarnings(proposal.warnings ?? [])
       await onGenerated()
       navigate(`/proposals/${proposal.id}`)
     } catch (e) {

@@ -8,6 +8,9 @@ export default function App() {
   const route = useHashRoute()
   const [profiles, setProfiles] = useState([])
   const [error, setError] = useState(null)
+  // Held here rather than in the form: generating navigates to the detail view, and a warning
+  // about a repository that could not be read has to survive that jump.
+  const [warnings, setWarnings] = useState([])
 
   useEffect(() => {
     listProfiles()
@@ -33,11 +36,27 @@ export default function App() {
         </div>
       )}
 
+      {warnings.length > 0 && (
+        <div className="banner banner-warning" role="status">
+          <div>
+            <strong>Generated with warnings</strong>
+            <ul>
+              {warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </div>
+          <button type="button" className="link" onClick={() => setWarnings([])}>
+            dismiss
+          </button>
+        </div>
+      )}
+
       <main>
         {route.view === 'detail' ? (
           <ProposalDetail id={route.id} onError={setError} />
         ) : (
-          <Inbox profiles={profiles} onError={setError} />
+          <Inbox profiles={profiles} onError={setError} onWarnings={setWarnings} />
         )}
       </main>
     </div>

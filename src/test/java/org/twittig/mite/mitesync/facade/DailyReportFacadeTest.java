@@ -24,6 +24,7 @@ import org.twittig.mite.mitesync.config.UnknownProfileException;
 import org.twittig.mite.mitesync.service.AzureDevOpsService;
 import org.twittig.mite.mitesync.service.BookingProposalService;
 import org.twittig.mite.mitesync.service.GitActivityEstimator;
+import org.twittig.mite.mitesync.service.GitActivityResult;
 import org.twittig.mite.mitesync.service.GitActivityService;
 import org.twittig.mite.mitesync.service.GitCommit;
 import org.twittig.mite.mitesync.service.GoogleCalendarService;
@@ -187,7 +188,8 @@ class DailyReportFacadeTest {
     ProposalEntryModel estimated = new ProposalEntryModel(60, "#VC-1 Fix the thing", "git", null, null);
     ProposalEntryModel proposed = new ProposalEntryModel(60, "#VC-1 Fix the thing", "git", null, null);
 
-    when(gitActivityService.getCommitsForDay(profile.getGit(), date)).thenReturn(List.of(commit));
+    when(gitActivityService.getCommitsForDay(profile.getGit(), date))
+        .thenReturn(new GitActivityResult(List.of(commit), List.of("Repository 'x' could not be read: gone")));
     when(miteBookingService.getEntriesForDate(profile, date)).thenReturn(List.of(booked));
     when(gitActivityEstimator.estimate(List.of(commit), profile.getGit(), 15))
         .thenReturn(List.of(estimated));
@@ -207,6 +209,8 @@ class DailyReportFacadeTest {
     assertThat(result.getGitCommits()).hasSize(1);
     assertThat(result.getGitCommits().get(0).getTime()).isEqualTo("09:30");
     assertThat(result.getGitCommits().get(0).getSubject()).isEqualTo("VC-1: Fix the thing");
+    // Warnings from the repository read reach the response instead of ending in the log alone.
+    assertThat(result.getWarnings()).containsExactly("Repository 'x' could not be read: gone");
     verifyNoInteractions(googleCalendarService, azureDevOpsService);
   }
 
@@ -218,7 +222,8 @@ class DailyReportFacadeTest {
     PbiAssignmentModel pbi = new PbiAssignmentModel();
     pbi.setTargetHours(4.0);
 
-    when(gitActivityService.getCommitsForDay(any(), any())).thenReturn(List.of());
+    when(gitActivityService.getCommitsForDay(any(), any()))
+            .thenReturn(new GitActivityResult(List.of(), List.of()));
     when(miteBookingService.getEntriesForDate(eq(profile), any())).thenReturn(List.of());
     when(gitActivityEstimator.estimate(any(), any(), anyInt())).thenReturn(List.of());
     when(bookingProposalService.buildGitProposal(any(), any(), any(), any())).thenReturn(List.of());

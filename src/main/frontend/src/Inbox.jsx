@@ -4,7 +4,7 @@ import GenerateForm from './GenerateForm.jsx'
 import StatusBadge from './StatusBadge.jsx'
 import { formatMinutes } from './format.js'
 
-export default function Inbox({ profiles, onError }) {
+export default function Inbox({ profiles, onError, onWarnings }) {
   const [proposals, setProposals] = useState(null)
   const [loadFailed, setLoadFailed] = useState(false)
 
@@ -29,7 +29,12 @@ export default function Inbox({ profiles, onError }) {
 
   return (
     <>
-      <GenerateForm profiles={profiles} onError={onError} onGenerated={reload} />
+      <GenerateForm
+        profiles={profiles}
+        onError={onError}
+        onWarnings={onWarnings}
+        onGenerated={reload}
+      />
 
       <section className="card">
         <h2>Inbox</h2>
