@@ -92,7 +92,9 @@ Things that are easy to get wrong here:
 
 ### Security
 
-`SecurityConfig` (package `config`) locks **every** endpoint behind HTTP basic auth — there is no public path, not even the OpenAPI UI. CSRF is disabled and sessions are stateless because this is a REST API for HTTP clients, not a browser form application.
+`SecurityConfig` (package `config`) locks **every** endpoint behind HTTP basic auth — there is no public path, not even the OpenAPI UI. Sessions are stateless.
+
+Token-based CSRF protection stays off, but **`RequiredHeaderCsrfFilter` rejects any `POST`/`PUT`/`DELETE` without an `X-Requested-With` header (403)**. Basic credentials are ambient in a browser, so once the UI existed a cross-site `<form method="post">` to `/proposals/{id}/confirm` (no request body, no preflight) would have booked real entries. A form cannot set headers; a script that does triggers a preflight this app never answers. **The guard therefore depends on no permissive CORS ever being configured** — that trade-off is the whole reason a token was not used, since a token would force every non-browser client to fetch one first. The filter sits *after* `AuthorizationFilter` so an unauthenticated write still gets 401 rather than a misleading 403. Controller slice tests import `ScriptedClientDefaults`, which supplies the header for every request; that the guard bites is asserted only in `SecurityConfigTest`.
 
 The single user comes from Spring Boot's `spring.security.user.*` properties (`SPRING_SECURITY_USER_NAME` / `SPRING_SECURITY_USER_PASSWORD`). They are intentionally **absent from the committed `application.yml`**, unlike the other placeholder values: an empty placeholder password would be a weak credential, whereas leaving them unset makes Boot generate a random password and log it — failing safe rather than open.
 

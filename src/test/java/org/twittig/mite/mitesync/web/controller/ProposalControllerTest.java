@@ -33,7 +33,7 @@ import org.twittig.mite.mitesync.web.model.MiteEntryModel;
 import org.twittig.mite.mitesync.web.model.ProposalEntryModel;
 import org.twittig.mite.mitesync.web.model.ProposalModel;
 
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, ScriptedClientDefaults.class})
 @WithMockUser
 @WebMvcTest(ProposalController.class)
 class ProposalControllerTest {

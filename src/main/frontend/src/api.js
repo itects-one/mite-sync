@@ -57,10 +57,21 @@ async function errorMessage(response) {
   return `${response.status} ${response.statusText}`
 }
 
+/**
+ * Marks the request as coming from this app. State-changing requests are rejected without it —
+ * a cross-site form cannot set headers, which is what keeps the browser's cached basic-auth
+ * credentials from being abused (see RequiredHeaderCsrfFilter). Sent on reads too, so there is
+ * one rule rather than a list of exceptions.
+ */
+const REQUEST_HEADERS = { 'X-Requested-With': 'mite-sync-ui' }
+
 async function request(method, path, body) {
   const response = await fetch(path, {
     method,
-    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+    headers:
+      body === undefined
+        ? REQUEST_HEADERS
+        : { ...REQUEST_HEADERS, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!response.ok) {

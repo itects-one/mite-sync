@@ -21,7 +21,7 @@ import org.twittig.mite.mitesync.facade.MiteSyncFacade;
 import org.twittig.mite.mitesync.web.model.SyncJobModel;
 import tools.jackson.databind.ObjectMapper;
 
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, ScriptedClientDefaults.class})
 @WithMockUser
 @WebMvcTest(MiteSyncController.class)
 class MiteSyncControllerTest {

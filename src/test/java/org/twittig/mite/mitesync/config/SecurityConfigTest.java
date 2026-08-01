@@ -1,5 +1,6 @@
 package org.twittig.mite.mitesync.config;
 
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -68,16 +69,41 @@ class SecurityConfigTest {
   }
 
   @Test
-  void writeRequestWithoutCsrfToken_isNotBlocked() throws Exception {
+  void writeRequestWithTheHeader_isAccepted() throws Exception {
     when(service.confirm(1L)).thenReturn(confirmResult());
-    // CSRF is disabled for this stateless API; without that, this POST would fail with 403.
+    // No CSRF token is involved: the header alone marks the request as script-initiated.
+    mockMvc
+        .perform(
+            post("/proposals/1/confirm")
+                .with(httpBasic("tester", "s3cret"))
+                .header("X-Requested-With", "test"))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void writeRequestWithoutTheHeader_isRejected() throws Exception {
+    // This is the cross-site form case: valid cached credentials, but no header a form could set.
     mockMvc
         .perform(post("/proposals/1/confirm").with(httpBasic("tester", "s3cret")))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(service);
+  }
+
+  @Test
+  void readRequestNeedsNoHeader() throws Exception {
+    mockMvc
+        .perform(get("/proposals").with(httpBasic("tester", "s3cret")))
         .andExpect(status().isOk());
   }
 
   @Test
   void unauthenticatedWriteRequest_isRejected() throws Exception {
+    // 401, not 403: missing credentials has to win over the missing header, or the response would
+    // hide the real reason.
+    mockMvc
+        .perform(post("/proposals/1/confirm").header("X-Requested-With", "test"))
+        .andExpect(status().isUnauthorized());
     mockMvc.perform(post("/proposals/1/confirm")).andExpect(status().isUnauthorized());
   }
 

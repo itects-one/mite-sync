@@ -209,9 +209,32 @@ Calling an endpoint then looks like this:
 curl -u "$SPRING_SECURITY_USER_NAME:$SPRING_SECURITY_USER_PASSWORD" http://localhost:8080/proposals
 ```
 
-CSRF protection is disabled and sessions are stateless — this is a REST API consumed by HTTP
-clients, not a browser form application, so there is no session to protect and no token for a
-client to carry.
+Sessions are stateless — there is nothing to keep between requests.
+
+### Why writes need an extra header
+
+**`POST`, `PUT` and `DELETE` are rejected with `403` unless the request carries an
+`X-Requested-With` header.** The value is irrelevant; only its presence is checked:
+
+```sh
+curl -u "$USER:$PASSWORD" -X POST -H "X-Requested-With: curl" \
+     http://localhost:8080/proposals/1/confirm
+```
+
+The reason is the web UI. In a browser, basic credentials are *ambient*: once entered, the browser
+attaches them to every request to this origin — including one a foreign page triggers.
+`POST /proposals/{id}/confirm` takes no request body, so without a guard a plain cross-site
+`<form method="post">` would be enough to book real entries.
+
+A form cannot set headers, which kills that vector. A script can, but adding a header makes the
+request preflighted, and this app answers no CORS preflight — the browser stops it before it is
+sent. That is also the catch: **the protection rests on the same-origin boundary, not on a secret**.
+Configuring permissive CORS would reopen the hole, and the UI never needs it, being served from
+this very origin.
+
+A token-based alternative (`CookieCsrfTokenRepository`) was considered and rejected: it would force
+every non-browser client to fetch a token before each write, for no gain as long as no foreign
+origin is allowed.
 
 ## Example requests
 

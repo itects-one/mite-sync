@@ -43,6 +43,20 @@ describe('api', () => {
     expect(JSON.parse(init.body)).toEqual({ entries: [{ minutes: 30, note: 'x' }] })
   })
 
+  it('marks every request as coming from this app', async () => {
+    // Without the header the server rejects state-changing requests — that is what keeps a
+    // cross-site form from riding on the browser's cached credentials.
+    const fetchMock = mockFetch(ok({ id: 1 }))
+
+    await listProposals()
+    await saveEntries(1, [{ minutes: 30, note: 'x' }])
+    await deleteProposal(1)
+
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init.headers['X-Requested-With']).toBe('mite-sync-ui')
+    }
+  })
+
   it('does not try to parse a 204', async () => {
     mockFetch({ ok: true, status: 204, json: async () => expect.unreachable() })
     await expect(deleteProposal(1)).resolves.toBeNull()

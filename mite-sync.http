@@ -2,10 +2,14 @@
 ### Define `auth` in an http-client.env.json next to this file, e.g.:
 ###   { "dev": { "auth": "bWl0ZS1zeW5jOnlvdXItcGFzc3dvcmQ=" } }
 ### where the value is base64 of "<user>:<password>" — see HELP.md.
+###
+### POST, PUT and DELETE additionally need an `X-Requested-With` header. Its value does not
+### matter; a cross-site form cannot set headers at all, which is what the check is for.
 
 ### Classic sync job: copies source → target
 POST http://localhost:8080/sync-jobs
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 Content-Type: application/json
 
 {
@@ -17,6 +21,7 @@ Content-Type: application/json
 ### Generate a daily-report proposal (default profile)
 POST http://localhost:8080/daily-reports/2026-05-04/preview
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 Content-Type: application/json
 
 {
@@ -27,6 +32,7 @@ Content-Type: application/json
 ### Generate a daily-report proposal for a specific project profile
 POST http://localhost:8080/daily-reports/default/2026-05-04/preview
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 Content-Type: application/json
 
 {
@@ -41,6 +47,7 @@ Authorization: Basic {{auth}}
 ### Book the daily-report (entries from preview, edited if needed)
 POST http://localhost:8080/daily-reports/2026-05-04/book
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 Content-Type: application/json
 
 {
@@ -53,6 +60,7 @@ Content-Type: application/json
 ### Book the daily-report for a specific project profile
 POST http://localhost:8080/daily-reports/default/2026-05-04/book
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 Content-Type: application/json
 
 {
@@ -64,6 +72,7 @@ Content-Type: application/json
 ### Preview for a git-activity profile (no mainPbiId needed — tickets come from commit messages)
 POST http://localhost:8080/daily-reports/my-project/2026-05-04/preview
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 Content-Type: application/json
 
 {
@@ -73,6 +82,7 @@ Content-Type: application/json
 ### Book the git-activity proposal (entries from preview, edited if needed)
 POST http://localhost:8080/daily-reports/my-project/2026-05-04/book
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 Content-Type: application/json
 
 {
@@ -91,6 +101,7 @@ Content-Type: application/json
 ### Generate (or regenerate) the DRAFT proposal for a project profile + date
 POST http://localhost:8080/proposals/default/2026-05-04
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 Content-Type: application/json
 
 {
@@ -111,6 +122,7 @@ Authorization: Basic {{auth}}
 # provenance it was generated with, everything changed or added is returned as "manual".
 PUT http://localhost:8080/proposals/1/entries
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 Content-Type: application/json
 
 {
@@ -123,7 +135,9 @@ Content-Type: application/json
 ### Confirm a DRAFT proposal — books its entries into Mite
 POST http://localhost:8080/proposals/1/confirm
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
 
 ### Delete a proposal
 DELETE http://localhost:8080/proposals/1
 Authorization: Basic {{auth}}
+X-Requested-With: mite-sync.http
