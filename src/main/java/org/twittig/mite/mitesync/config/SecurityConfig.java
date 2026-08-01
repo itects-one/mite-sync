@@ -6,6 +6,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 
 /**
  * Locks down every endpoint behind HTTP basic authentication.
@@ -27,12 +28,17 @@ public class SecurityConfig {
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     return http
-        // Stateless REST API consumed by HTTP clients, not a browser form application: there is
-        // no session to protect and no CSRF token for a client to carry.
+        // Token-based CSRF protection is off because there is no session to hang a token on and
+        // every non-browser client would have to fetch one first. Cross-site forgery is instead
+        // blocked by RequiredHeaderCsrfFilter — see its Javadoc for why that suffices here, and
+        // for the CORS constraint that comes with it.
         .csrf(csrf -> csrf.disable())
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
         .httpBasic(Customizer.withDefaults())
+        // After authorization, so that an unauthenticated write is still answered with 401 rather
+        // than a 403 that hides the real reason.
+        .addFilterAfter(new RequiredHeaderCsrfFilter(), AuthorizationFilter.class)
         .build();
   }
 }

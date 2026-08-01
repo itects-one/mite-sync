@@ -30,7 +30,7 @@ import org.twittig.mite.mitesync.web.model.MiteEntryModel;
 import org.twittig.mite.mitesync.web.model.ProposalEntryModel;
 import tools.jackson.databind.ObjectMapper;
 
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, ScriptedClientDefaults.class})
 @WithMockUser
 @WebMvcTest(DailyReportController.class)
 class DailyReportControllerTest {
