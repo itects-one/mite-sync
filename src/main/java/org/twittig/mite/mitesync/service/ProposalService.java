@@ -122,6 +122,7 @@ public class ProposalService {
   public ConfirmResultModel confirm(Long id) {
     Proposal proposal = load(id);
     requireDraft(proposal);
+    requireEntries(proposal);
 
     List<ProposalEntryModel> entries =
         proposal.getEntries().stream().map(mapper::toEntryModel).toList();
@@ -150,12 +151,29 @@ public class ProposalService {
     }
   }
 
+  /**
+   * A day without activity generates a valid but empty DRAFT. Confirming it has to be refused
+   * here: {@link #deriveStatus} judges the booking result alone and would read the empty one as a
+   * success.
+   */
+  private void requireEntries(Proposal proposal) {
+    if (proposal.getEntries().isEmpty()) {
+      throw new EmptyProposalException(proposal.getId());
+    }
+  }
+
   private Proposal newDraft(String profileKey, LocalDate date) {
     Proposal proposal = new Proposal(profileKey, date, ProposalStatus.DRAFT);
     proposal.setCreatedAt(Instant.now());
     return proposal;
   }
 
+  /**
+   * Derives the outcome from the booking result. Every entry ends up in either {@code created} or
+   * {@code failed}, so an all-empty result can only mean an empty proposal — which {@link
+   * #requireEntries} has already rejected. Guarding for it again here would be code no caller can
+   * reach.
+   */
   private static ProposalStatus deriveStatus(BookingResultModel result) {
     boolean anyCreated = result.getCreated() != null && !result.getCreated().isEmpty();
     boolean anyFailed = result.getFailed() != null && !result.getFailed().isEmpty();

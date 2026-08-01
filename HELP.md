@@ -117,7 +117,9 @@ and confirmed — the foundation for a later scheduler + web UI.
   DRAFT (otherwise `409`). See **Entry provenance** below for what happens to `source`.
 - `POST /proposals/{id}/confirm` — books the entries into Mite via the existing best-effort
   pipeline and records the outcome as `BOOKED`, `PARTIALLY_BOOKED` or `FAILED`. Only allowed while
-  DRAFT.
+  DRAFT, and only with entries: a day without activity generates a valid but empty proposal, and
+  confirming that would claim a booking that never happened (`409`). Such a day is a proposal not
+  worth confirming — delete it, or regenerate it once the day has activity.
 - `DELETE /proposals/{id}` — remove a proposal.
 
 Proposals are persisted in an embedded **H2 file database** at `~/.mite-sync/db/` (in Docker,

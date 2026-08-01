@@ -24,6 +24,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.twittig.mite.mitesync.config.SecurityConfig;
 import org.twittig.mite.mitesync.persistence.ProposalStatus;
+import org.twittig.mite.mitesync.service.EmptyProposalException;
 import org.twittig.mite.mitesync.service.IllegalProposalStateException;
 import org.twittig.mite.mitesync.service.ProposalService;
 import org.twittig.mite.mitesync.service.UnknownProposalException;
@@ -150,6 +151,16 @@ class ProposalControllerTest {
   }
 
   // -------- POST /proposals/{id}/confirm --------
+
+  @Test
+  void confirm_returns_409_when_the_proposal_has_no_entries() throws Exception {
+    when(service.confirm(4L)).thenThrow(new EmptyProposalException(4L));
+
+    mockMvc
+        .perform(post("/proposals/4/confirm"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.entries").exists());
+  }
 
   @Test
   void confirm_returns_200() throws Exception {

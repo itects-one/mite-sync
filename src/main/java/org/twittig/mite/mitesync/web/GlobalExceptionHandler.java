@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.twittig.mite.mitesync.config.UnknownProfileException;
 import org.twittig.mite.mitesync.facade.MissingMainPbiException;
+import org.twittig.mite.mitesync.service.EmptyProposalException;
 import org.twittig.mite.mitesync.service.IllegalProposalStateException;
 import org.twittig.mite.mitesync.service.UnknownProposalException;
 
@@ -41,6 +42,11 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(UnknownProposalException.class)
   public ResponseEntity<Map<String, String>> handleUnknownProposal(UnknownProposalException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("proposal", ex.getMessage()));
+  }
+
+  @ExceptionHandler(EmptyProposalException.class)
+  public ResponseEntity<Map<String, String>> handleEmptyProposal(EmptyProposalException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("entries", ex.getMessage()));
   }
 
   @ExceptionHandler(IllegalProposalStateException.class)
