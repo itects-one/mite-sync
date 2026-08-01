@@ -46,10 +46,10 @@ describe('App', () => {
 
   it('asks for a main PBI only where the profile needs one', async () => {
     render(<App />)
-    await screen.findByText(/No proposals yet/)
 
-    // default is a calendar-devops profile and is preselected
-    expect(screen.getByLabelText(/Main PBI/)).toBeDefined()
+    // Wait for the form itself: it fills from listProfiles, which is a different promise than the
+    // proposal list — awaiting the list would leave the preselection racing.
+    expect(await screen.findByLabelText(/Main PBI/)).toBeDefined()
 
     await userEvent.selectOptions(screen.getByLabelText(/Profile/), 'side')
 
@@ -59,8 +59,9 @@ describe('App', () => {
   it('omits what the user left empty when generating', async () => {
     api.generateProposal.mockResolvedValue({ id: 7 })
     render(<App />)
-    await screen.findByText(/No proposals yet/)
 
+    // The option itself has to be there — the select renders before the profiles arrive.
+    await screen.findByRole('option', { name: /side/ })
     await userEvent.selectOptions(screen.getByLabelText(/Profile/), 'side')
     await userEvent.click(screen.getByRole('button', { name: 'Generate' }))
 
