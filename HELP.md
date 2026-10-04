@@ -329,6 +329,8 @@ through a non-interactive shell silently stores an empty value:
 - In the compose directory: `docker-compose.yml`, `.env` and the secrets directory (see
   `.env.example`). Point `SECRETS_DIR` at an absolute path — `~` would resolve to the deploy
   user's home.
+- Set `TZ` in `.env` to your own zone. The image runs on UTC otherwise, and a `git-activity` day
+  would then start and end at UTC midnight.
 - If the Docker Hub repository is private, log the deploy user in once with a **read-only**
   access token: `sudo -u <deploy-user> docker login -u <hub-user>`.
 

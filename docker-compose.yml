@@ -10,6 +10,9 @@ services:
       - ${SECRETS_DIR:-~/.mite-sync}/google-tokens:/secrets/google-tokens
       - ${SECRETS_DIR:-~/.mite-sync}/db:/data/db   # proposal store (H2 file database)
     environment:
+      # The JVM's default zone, which decides where a git-activity day starts and ends.
+      # The image itself runs on UTC.
+      TZ: ${TZ:-UTC}
       # Proposal store: fixed /data path (container home differs from the host)
       SPRING_DATASOURCE_URL: "jdbc:h2:file:/data/db/mite-sync;AUTO_SERVER=TRUE"
       # API credentials (HTTP basic auth) — required on every endpoint

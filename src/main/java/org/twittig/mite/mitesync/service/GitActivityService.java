@@ -38,6 +38,7 @@ public class GitActivityService {
    * with a warning for every repository that could not be read.
    */
   public GitActivityResult getCommitsForDay(GitActivity config, LocalDate date) {
+    // In the container the default zone comes from TZ (docker-compose.yml) and is UTC when unset.
     ZoneId zone = ZoneId.systemDefault();
     Instant dayStart = date.atStartOfDay(zone).toInstant();
     Instant dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant();
