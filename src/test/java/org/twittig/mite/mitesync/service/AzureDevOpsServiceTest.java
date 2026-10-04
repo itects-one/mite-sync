@@ -53,6 +53,27 @@ class AzureDevOpsServiceTest {
     assertThat(AzureDevOpsService.joinIds(List.of())).isEmpty();
   }
 
+  // --- changedOnDateWiql ---
+
+  @Test
+  void changedOnDateWiql_boundsTheDayByDatesWithoutTime() {
+    // A time component makes Azure DevOps answer 400 for a query run with date precision.
+    String wiql = AzureDevOpsService.changedOnDateWiql("My Project", LocalDate.of(2024, 3, 15));
+
+    assertThat(wiql)
+        .contains("[System.ChangedDate] >= '2024-03-15'")
+        .contains("[System.ChangedDate] < '2024-03-16'")
+        .doesNotContain("T00:")
+        .doesNotContain("T23:");
+  }
+
+  @Test
+  void changedOnDateWiql_endOfMonthRollsIntoNextMonth() {
+    String wiql = AzureDevOpsService.changedOnDateWiql("My Project", LocalDate.of(2024, 2, 29));
+
+    assertThat(wiql).contains("< '2024-03-01'");
+  }
+
   // --- getWorkItemsChangedByMeOnDate ---
 
   @Test
