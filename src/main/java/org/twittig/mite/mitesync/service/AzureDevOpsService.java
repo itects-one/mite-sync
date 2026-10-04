@@ -48,14 +48,22 @@ public class AzureDevOpsService {
    * date, plus a warning per call that failed.
    */
   public WorkItemResult getWorkItemsChangedByMeOnDate(LocalDate date) {
-    String wiql =
-        "SELECT [System.Id] FROM WorkItems "
-            + "WHERE [System.TeamProject] = '" + project + "' "
-            + "AND [System.ChangedDate] >= '" + date + "T00:00:00.0000000' "
-            + "AND [System.ChangedDate] < '" + date + "T23:59:59.9999999' "
-            + "AND ([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me) "
-            + "ORDER BY [System.ChangedDate] DESC";
-    return queryAndFetch(wiql, "work items changed today", true, false);
+    return queryAndFetch(changedOnDateWiql(project, date), "work items changed today", true, false);
+  }
+
+  /**
+   * Bounds the day by dates only. A WIQL query runs with date precision unless the request asks
+   * for {@code timePrecision=true}, and Azure DevOps rejects a time component in that mode with
+   * HTTP 400. Date precision is also the better fit: Azure evaluates it in the PAT owner's profile
+   * time zone, so the boundary falls on the user's own midnight rather than on UTC's.
+   */
+  static String changedOnDateWiql(String project, LocalDate date) {
+    return "SELECT [System.Id] FROM WorkItems "
+        + "WHERE [System.TeamProject] = '" + project + "' "
+        + "AND [System.ChangedDate] >= '" + date + "' "
+        + "AND [System.ChangedDate] < '" + date.plusDays(1) + "' "
+        + "AND ([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me) "
+        + "ORDER BY [System.ChangedDate] DESC";
   }
 
   /**
