@@ -332,6 +332,48 @@ through a non-interactive shell silently stores an empty value:
 - If the Docker Hub repository is private, log the deploy user in once with a **read-only**
   access token: `sudo -u <deploy-user> docker login -u <hub-user>`.
 
+## Backup and restore
+
+All state lives outside the image, in the compose directory on the host:
+
+| Path | Content | Lost without backup |
+|---|---|---|
+| `$SECRETS_DIR/db/` | proposal store (H2 file database) | every proposal and its history |
+| `$SECRETS_DIR/google-tokens/` | Google OAuth refresh token | needs a new browser consent |
+| `$SECRETS_DIR/google-client-secret.json` | OAuth client | must be downloaded again |
+| `.env`, `docker-compose.yml` | configuration and API keys | must be reassembled by hand |
+
+The image itself needs no backup; every tag can be pulled again.
+
+**Take the copy with the container stopped.** H2 writes its file in place, so copying it while the
+app runs can catch a half-written page. Stopping for the few seconds the archive takes is the
+simplest way to a consistent file:
+
+```sh
+cd <compose-dir>
+docker compose stop
+tar --zstd -cf /path/to/backup/mite-sync-$(date +%F).tar.zst .
+docker compose start
+```
+
+Run this from a scheduler on the host and copy the archives to another machine — a backup on the
+same disk does not survive the disk. The container runs as root, so files it creates in `db/` are
+owned by root: run the backup as root as well.
+
+### Restore
+
+1. Stop the instance: `docker compose stop` (on a fresh host, skip this).
+2. Unpack the archive into the compose directory, keeping the layout (`.env`, `docker-compose.yml`,
+   and the secrets directory that `SECRETS_DIR` points to).
+3. `docker compose up -d`.
+4. Check that it is back: `GET /profiles` answers, `GET /proposals` lists the old proposals, and a
+   `calendar-devops` preview works without a Google consent prompt — that proves the refresh token
+   came back too.
+
+Restoring the H2 file under a newer app version is fine: Hibernate extends the schema on start
+(`ddl-auto: update`). It never removes anything, so going back to an older version after a newer
+one has run is not guaranteed to work.
+
 ## Example requests
 
 See [`mite-sync.http`](./mite-sync.http) — the IntelliJ HTTP client understands this format
