@@ -271,6 +271,67 @@ A token-based alternative (`CookieCsrfTokenRepository`) was considered and rejec
 every non-browser client to fetch a token before each write, for no gain as long as no foreign
 origin is allowed.
 
+## Deployment
+
+Every green build on `main` is rolled out automatically by the `deploy` job in
+`.github/workflows/ci.yml`, once the multi-arch image has been pushed:
+
+1. The runner joins the tailnet as an ephemeral node tagged `tag:ci` (Tailscale OAuth client, no
+   long-lived auth key).
+2. It connects to the host with **Tailscale SSH** as the deploy user. Access is granted by the
+   tailnet policy, so there is no SSH key in GitHub.
+3. In the compose directory it runs `docker compose pull` and `docker compose up -d`, then removes
+   the image that was replaced.
+4. It polls the app on the host until an unauthenticated request answers `401`. That proves the
+   app is up without its credentials ever being in GitHub. If it does not come back within two
+   minutes, the job prints the container log and the CI run turns red.
+
+Pull requests and tags never deploy. A failing `verify` stops the chain before an image is built.
+
+### One-time setup
+
+**Tailscale policy** (admin console → Access controls). The host carries `tag:server`; CI may
+reach nothing but SSH on it, and only as the deploy user:
+
+```hujson
+"tagOwners": {
+  "tag:ci":     ["autogroup:admin"],
+  "tag:server": ["autogroup:admin"],
+},
+"grants": [
+  {"src": ["tag:ci"], "dst": ["tag:server"], "ip": ["tcp:22"]},
+  // ...plus whatever your own devices need
+],
+"ssh": [
+  {"action": "accept", "src": ["tag:ci"], "dst": ["tag:server"], "users": ["<deploy-user>"]},
+  // Tagged devices are no longer covered by autogroup:self — grant yourself access explicitly.
+  {"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:server"], "users": ["<your-user>", "<deploy-user>"]},
+],
+```
+
+Then tag the host with `tag:server` (Machines → ⋯ → Edit ACL tags), and create an **OAuth client**
+(Settings → Trust credentials) with the scope *Keys → Auth Keys: Write* and the tag `tag:ci`.
+
+**GitHub repository secrets** — set them from a real terminal with `gh secret set <NAME>`; piping
+through a non-interactive shell silently stores an empty value:
+
+| Secret | Value |
+|---|---|
+| `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET` | the OAuth client from above |
+| `DEPLOY_HOST` | the host's tailnet IP or MagicDNS name |
+| `DEPLOY_USER` | the deploy user on the host |
+| `DEPLOY_PATH` | the compose directory on the host |
+
+**Host**:
+
+- Docker with the Compose plugin, `tailscale set --ssh`.
+- A dedicated deploy user without sudo, member of the `docker` group only.
+- In the compose directory: `docker-compose.yml`, `.env` and the secrets directory (see
+  `.env.example`). Point `SECRETS_DIR` at an absolute path — `~` would resolve to the deploy
+  user's home.
+- If the Docker Hub repository is private, log the deploy user in once with a **read-only**
+  access token: `sudo -u <deploy-user> docker login -u <hub-user>`.
+
 ## Example requests
 
 See [`mite-sync.http`](./mite-sync.http) — the IntelliJ HTTP client understands this format

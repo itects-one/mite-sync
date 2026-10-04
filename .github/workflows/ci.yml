@@ -106,6 +106,60 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
         run: docker buildx imagetools inspect "$IMAGE:$VERSION"
 
+  # Rolls the fresh `latest` image out to the self-hosted instance. The runner joins the
+  # tailnet as an ephemeral node tagged `tag:ci`, which the tailnet policy allows exactly one
+  # thing: SSH as the deploy user on the host. Tailscale SSH authorises by that tag, so no SSH
+  # key lives in GitHub. Host, user and compose path are secrets because the repo is public;
+  # pull requests never get here, so forks never see them.
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: docker
+    runs-on: ubuntu-latest
+    # Queue rapid merges instead of letting two rollouts recreate the container at once.
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    steps:
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ secrets.DEPLOY_HOST }}
+      # The runner is new on every run, so there is no known_hosts to check against; the
+      # connection is already authenticated end to end by the tailnet's node keys.
+      #
+      # Liveness is checked on the host because the policy opens nothing but SSH to CI. An
+      # unauthenticated request answering 401 proves the app is up without the app's
+      # credentials ever being in GitHub. `image prune` drops the image the update replaced;
+      # the host boots from an SD card and would otherwise fill up one release at a time.
+      - name: Pull, restart and wait for the app
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_USER@$DEPLOY_HOST" \
+            bash -s -- "$DEPLOY_PATH" <<'EOF'
+          set -euo pipefail
+          cd "$1"
+          docker compose pull --quiet
+          docker compose up -d --remove-orphans
+          docker image prune -f >/dev/null
+          port=$(docker compose port mite-sync 8080 | cut -d: -f2)
+          for _ in $(seq 1 60); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$port/profiles" || true)
+            if [ "$status" = 401 ]; then
+              echo "App is up (HTTP $status)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App did not come back within 120 s (last status: $status)" >&2
+          docker compose logs --tail 50 mite-sync >&2
+          exit 1
+          EOF
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: docker
